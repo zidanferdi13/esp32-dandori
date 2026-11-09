@@ -55,8 +55,8 @@ inline void fail(const char* file, int line, const std::string& msg) {
 
 #define CHECK_EQ(a, b)                                               \
   do {                                                               \
-    const auto& va_ = (a);                                           \
-    const auto& vb_ = (b);                                           \
+    const auto va_ = (a);                                            \
+    const auto vb_ = (b);                                            \
     if (!(va_ == vb_))                                               \
       mini_test::fail(__FILE__, __LINE__,                            \
                       "CHECK_EQ(" #a ", " #b "): " + mini_test::show(va_) + \
