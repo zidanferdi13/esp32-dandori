@@ -12,11 +12,9 @@ Firmware Arduino untuk **Waveshare ESP32-S3-Touch-LCD-7** (800×480). Operator m
 |---|---|
 | Arduino IDE + core `esp32` (Espressif) | 3.3.7 |
 | LVGL | 9.4.0 |
-| GFX Library for Arduino | 1.6.2 |
-| SensorLib | 0.3.3 |
 | ArduinoJson | 7.4.3 |
 
-`tools/build.sh` menyalin `firmware/lv_conf.h` ke folder `libraries` Arduino (`%USERPROFILE%\OneDrive\Documents\Arduino\libraries\lv_conf.h`). Kalau build dari Arduino IDE, salin file itu secara manual sekali. Sketch LVGL lain di PC yang sama akan ikut memakai `lv_conf.h` ini.
+`tools/build.sh` menyalin `firmware/lv_conf.h` ke `.arduino-user/libraries/lv_conf.h` (folder proyek), jadi sketch LVGL lain di PC tidak terpengaruh.
 
 ## Pengaturan board (Arduino IDE → Tools)
 
@@ -37,8 +35,17 @@ FQBN untuk CLI: `esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=hug
 bash tools/setup_libs.sh              # sekali: pasang library versi di atas ke .arduino-user/
 bash tools/run_host_tests.sh          # unit test logika inti di PC (butuh g++ WinLibs)
 bash tools/build.sh                   # compile firmware
-bash tools/build.sh --upload COM5     # compile + upload
+bash tools/build.sh --upload COM8     # compile + upload ke board
 ```
+
+Layar RGB dan sentuh GT911 dijalankan langsung lewat ESP-IDF (`esp_lcd`) dan `Wire`, tanpa library GFX/SensorLib, supaya build tidak perlu memindai ratusan driver yang tidak dipakai.
+
+### Upload ke board
+
+1. Sambungkan board lewat port **USB** (bukan UART). Di Windows muncul sebagai *USB Serial Device (COMx)*, VID `303A`.
+2. Jalankan `bash tools/build.sh --upload COM8` (ganti COM8 sesuai port).
+3. Kalau upload gagal "port busy" / "no serial data": tutup Serial Monitor yang sedang memakai port itu. Kalau masih gagal, tahan tombol **BOOT**, tekan **RESET**, lepas **BOOT**, lalu upload lagi; setelah selesai tekan **RESET**.
+4. Lihat log: Serial Monitor Arduino IDE di COM8, 115200 baud.
 
 Build CLI memakai library di `.arduino-user/` (folder proyek), bukan sketchbook OneDrive, supaya tidak bergantung pada sinkronisasi OneDrive. Kalau mau build dari Arduino IDE, pilih salah satu:
 - arahkan **File → Preferences → Sketchbook location** ke folder `.arduino-user` di proyek ini, atau
