@@ -1,0 +1,114 @@
+<style>
+  .flow{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:28px;margin-top:18px}
+  .step-lbl{font-size:13px;font-weight:600;margin-bottom:6px;opacity:.85}
+  .step-note{font-size:12px;opacity:.7;margin-top:6px;line-height:1.4}
+  .scr{width:400px;height:240px;background:#11161c;color:#e8edf2;border-radius:10px;border:6px solid #2a2f36;
+       font-family:system-ui,Segoe UI,sans-serif;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .bar{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;font-size:10px;background:#1b222b;color:#9fb0c2}
+  .bar b{color:#e8edf2}
+  .body{flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:6px;min-height:0}
+  .btn{border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;letter-spacing:.5px}
+  .g{background:#1f9d55;color:#fff}.r{background:#d63c3c;color:#fff}.b{background:#2d6cdf;color:#fff}.k{background:#2a323c;color:#cfd8e2}
+  .dis{background:#2a323c;color:#5c6875}
+  .mo{display:flex;justify-content:space-between;align-items:center;padding:3px 9px;line-height:1.2;background:#1b222b;border-radius:6px;font-size:11px}
+  .mo.sel{outline:2px solid #2d6cdf;background:#1d2a3d}
+  .mo small{color:#8496a8;font-size:9px}
+  .kp{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;flex:1}
+  .kp div{background:#2a323c;border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+</style>
+
+<h2>Alur layar ESP32-S3 (usulan)</h2>
+<p class="subtitle">Mockup kasar, diasumsikan layar landscape 800×480 (digambar setengah ukuran). Warna &amp; ukuran tombol masih bisa diubah.</p>
+
+<div class="flow">
+
+  <!-- 1 -->
+  <div>
+    <div class="step-lbl">① Pilih MO (setelah tekan Get MO)</div>
+    <div class="scr">
+      <div class="bar"><span>Mesin: <b>PALLETIZER-01</b></span><span>WiFi ● &nbsp; 09/11/2026 07:02</span></div>
+      <div class="body">
+        <div style="font-size:12px;font-weight:700">Pilih MO yang sedang jalan</div>
+        <div class="mo sel"><span><b>MO-2611-0012</b><br><small>Bata Ringan 10cm</small></span><span>›</span></div>
+        <div class="mo"><span><b>MO-2611-0013</b><br><small>Bata Ringan 7.5cm</small></span><span>›</span></div>
+        <div class="mo"><span><b>MO-2611-0015</b><br><small>Panel 20cm</small></span><span>›</span></div>
+        <div style="display:flex;gap:6px;margin-top:auto">
+          <div class="btn k" style="flex:1;height:30px;font-size:11px">⟳ Refresh</div>
+          <div class="btn b" style="flex:2;height:30px;font-size:12px">PILIH MO INI</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-note">Daftar dari <code>GET /api/mo?tgl=…</code>. Tap satu baris → konfirmasi. Info produk di bawah nomor MO opsional (kalau API menyediakan).</div>
+  </div>
+
+  <!-- 2 -->
+  <div>
+    <div class="step-lbl">② Counting – siap (MO aktif)</div>
+    <div class="scr">
+      <div class="bar"><span>MO aktif: <b>MO-2611-0012</b></span><span>WiFi ● &nbsp; 08:14</span></div>
+      <div class="body" style="align-items:center;justify-content:center">
+        <div style="font-size:10px;color:#8496a8">Mesin berjalan normal</div>
+        <div style="font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;color:#5c6875">00:00:00</div>
+        <div class="btn g" style="width:100%;height:70px;font-size:22px">▶ START</div>
+        <div style="display:flex;justify-content:space-between;width:100%;font-size:9px;color:#8496a8">
+          <span>Hari ini: 3 kejadian · 14 mnt 22 dtk</span><span style="text-decoration:underline">Ganti MO</span>
+        </div>
+      </div>
+    </div>
+    <div class="step-note">Layar "standby" sepanjang MO jalan. Tombol START dibuat paling besar supaya cepat ditekan saat trouble.</div>
+  </div>
+
+  <!-- 3 -->
+  <div>
+    <div class="step-lbl">③ Counting – berjalan</div>
+    <div class="scr" style="border-color:#7a2626">
+      <div class="bar" style="background:#3a1717;color:#f0b4b4"><span>MO aktif: <b>MO-2611-0012</b></span><span>Mulai 08:15:30</span></div>
+      <div class="body" style="align-items:center;justify-content:center">
+        <div style="font-size:10px;color:#f0b4b4">⚠ MESIN BERHENTI</div>
+        <div style="font-size:46px;font-weight:800;font-variant-numeric:tabular-nums;color:#ff6b6b">00:05:35</div>
+        <div class="btn r" style="width:100%;height:70px;font-size:22px">■ STOP</div>
+        <div style="font-size:9px;color:#8496a8">Ganti MO dikunci selama timer berjalan</div>
+      </div>
+    </div>
+    <div class="step-note">Seluruh layar berubah merah supaya terlihat dari jauh bahwa sedang menghitung downtime.</div>
+  </div>
+
+  <!-- 4 -->
+  <div>
+    <div class="step-lbl">④ Input kode problem</div>
+    <div class="scr">
+      <div class="bar"><span>Durasi: <b>5 mnt 35 dtk</b> (335 dtk)</span><span>08:15:30 → 08:21:05</span></div>
+      <div class="body" style="flex-direction:row;gap:8px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+          <div style="font-size:10px;color:#8496a8">Kode problem</div>
+          <div style="background:#0b0f13;border:2px solid #2d6cdf;border-radius:6px;font-size:30px;font-weight:800;text-align:center;padding:2px">13</div>
+          <div style="background:#1b222b;border-radius:6px;padding:6px;font-size:10px;line-height:1.45">
+            <span style="color:#f2c94c">Loss Time</span> · Palletizer<br><b style="font-size:12px">Dandory Produk</b>
+          </div>
+          <div class="btn g" style="margin-top:auto;height:34px;font-size:13px">✓ KIRIM</div>
+        </div>
+        <div class="kp" style="flex:1">
+          <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div>
+          <div>7</div><div>8</div><div>9</div><div style="background:#4a2a2a">⌫</div><div>0</div><div style="background:#4a2a2a;font-size:10px">HAPUS</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-note">Keypad angka besar. Begitu kode diketik, nama problem langsung muncul supaya operator yakin tidak salah. Kode di luar 1–26 → tombol KIRIM mati.</div>
+  </div>
+
+  <!-- 5 -->
+  <div>
+    <div class="step-lbl">⑤ Hasil kirim</div>
+    <div class="scr">
+      <div class="bar"><span>MO aktif: <b>MO-2611-0012</b></span><span>WiFi ● &nbsp; 08:21</span></div>
+      <div class="body" style="align-items:center;justify-content:center;gap:8px">
+        <div style="font-size:40px;color:#1f9d55">✓</div>
+        <div style="font-size:15px;font-weight:700">Data terkirim</div>
+        <div style="font-size:10px;color:#8496a8;text-align:center">MO-2611-0012 · Kode 13 Dandory Produk · 335 dtk</div>
+        <div style="font-size:9px;color:#8496a8">Kembali ke layar Counting dalam 3 detik…</div>
+      </div>
+    </div>
+    <div class="step-note">Kalau gagal kirim (WiFi/API mati): tampil "Disimpan, akan dikirim ulang otomatis" + badge jumlah antrian di bar atas. Operator tetap bisa lanjut.</div>
+  </div>
+
+</div>
