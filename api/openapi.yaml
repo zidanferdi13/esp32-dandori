@@ -1,0 +1,193 @@
+openapi: 3.0.3
+info:
+  title: Dandori Downtime API
+  version: 0.1.0
+  description: |
+    Contract between the ESP32 downtime recorder (one device per machine) and the backend.
+    Source of truth: docs/superpowers/specs/2026-11-09-dandori-downtime-design.md §7.
+
+    Open points for the backend team (spec §9):
+    - `tgl` is the *production day*, which starts at 08:00 WIB (02:00 on the 10th still belongs to the 9th).
+    - Whether the production API uses HTTPS and how the device should verify its certificate.
+    - Token format; the device sends `Authorization: Bearer <token>` only when a token is configured.
+servers:
+  - url: http://localhost:4500
+    description: Local Postman mock
+security:
+  - {}
+  - bearerAuth: []
+paths:
+  /api/mo:
+    get:
+      operationId: getMoList
+      summary: List the MOs running on a production day
+      parameters:
+        - name: tgl
+          in: query
+          required: false
+          description: Production day (YYYY-MM-DD, day starts 08:00 WIB). Omitted when the device clock is not synced; the backend then picks the date.
+          schema:
+            type: string
+            format: date
+          example: "2026-11-09"
+      responses:
+        "200":
+          description: MO list (may be empty)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoListResponse"
+              examples:
+                running:
+                  summary: Three running MOs, one without produk
+                  value:
+                    tgl: "2026-11-09"
+                    data:
+                      - mo: MO-2611-0012
+                        produk: Bata Ringan 10cm
+                      - mo: MO-2611-0013
+                        produk: Bata Ringan 7.5cm
+                      - mo: MO-2611-0015
+                empty:
+                  summary: No MO on this day
+                  value:
+                    tgl: "2026-11-09"
+                    data: []
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: error
+                message: Internal server error
+  /api/downtime:
+    post:
+      operationId: postDowntime
+      summary: Record one downtime event
+      description: |
+        The device retries on transport errors, 408, 429 and 5xx with the same `id`,
+        so the backend must treat `id` as an idempotency key (a repeated id is not a new event).
+        Any other 4xx is final: the device stops retrying that event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DowntimeEvent"
+            examples:
+              withClock:
+                value:
+                  id: PALLETIZER-01-20261109-081530-0007
+                  mesin: PALLETIZER-01
+                  mo: MO-2611-0012
+                  kode_problem: 13
+                  start: "2026-11-09T08:15:30+07:00"
+                  stop: "2026-11-09T08:21:05+07:00"
+                  total_detik: 335
+              noClock:
+                summary: Device clock not synced (NTP unreachable)
+                value:
+                  id: PALLETIZER-01-NC-000012
+                  mesin: PALLETIZER-01
+                  mo: MO-2611-0012
+                  kode_problem: 25
+                  start: null
+                  stop: null
+                  total_detik: 42
+      responses:
+        "201":
+          description: Stored (or already stored with this id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ack"
+              example:
+                status: ok
+                id: PALLETIZER-01-20261109-081530-0007
+        "400":
+          description: Invalid payload; the device will not retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: error
+                message: kode_problem must be 1..26
+        "500":
+          description: Server error; the device retries later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: error
+                message: Internal server error
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    MoListResponse:
+      type: object
+      required: [data]
+      properties:
+        tgl:
+          type: string
+          format: date
+        data:
+          type: array
+          items:
+            type: object
+            required: [mo]
+            properties:
+              mo:
+                type: string
+              produk:
+                type: string
+                description: Optional; shown under the MO number on the device.
+    DowntimeEvent:
+      type: object
+      required: [id, mesin, mo, kode_problem, start, stop, total_detik]
+      properties:
+        id:
+          type: string
+          description: Unique per event and per device; stable across retries.
+        mesin:
+          type: string
+          description: Machine code configured on the device.
+        mo:
+          type: string
+        kode_problem:
+          type: integer
+          minimum: 1
+          maximum: 26
+        start:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO-8601 with +07:00; null when the device clock was not synced.
+        stop:
+          type: string
+          format: date-time
+          nullable: true
+        total_detik:
+          type: integer
+          minimum: 0
+          description: Measured with the device's monotonic timer; always present and authoritative.
+    Ack:
+      type: object
+      properties:
+        status:
+          type: string
+        id:
+          type: string
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string

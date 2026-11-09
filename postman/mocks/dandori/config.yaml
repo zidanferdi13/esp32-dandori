@@ -1,0 +1,11 @@
+version: 1
+id: 08d961d0-9596-483b-b43b-210cead705fb
+name: Dandori Downtime API
+slug: dandori-downtime-api
+protocol: http
+port: 4500
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true
