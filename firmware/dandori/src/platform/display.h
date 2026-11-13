@@ -2,7 +2,7 @@
 #pragma once
 #include <stdint.h>
 
-// Initializes I2C, CH422G, RGB panel, GT911 and LVGL (display + pointer input).
+// Initializes I2C, the 16-bit IO expander, RGB panel, GT911 and LVGL (display + pointer input).
 bool displayBegin();
 // Runs lv_timer_handler() and the screen-off timer. Call from loop().
 void displayTick();

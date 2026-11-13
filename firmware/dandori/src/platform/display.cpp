@@ -20,22 +20,35 @@ constexpr uint16_t kGt911RegPoint1 = 0x8150;  // x lo, x hi, y lo, y hi
 esp_lcd_panel_handle_t s_panel = nullptr;
 uint8_t s_touchAddr = 0;  // 0 = GT911 not found
 
-uint8_t s_exio = 0;
+uint16_t s_exio = 0;
 bool s_backlightOn = false;
 bool s_swallowTouch = false;  // wake-up touch: report released until the finger lifts
 uint16_t s_screenOffMin = 0;
 int16_t s_lastX = 0, s_lastY = 0;
 bool s_lastPressed = false;
 
-void ch422gWrite(uint8_t command, uint8_t value) {
-  Wire.beginTransmission(command);
-  Wire.write(value);
-  Wire.endTransmission();
+// 16-bit IO expander: [command, value low byte, value high byte] at 0x24.
+void expanderWrite(uint8_t command, uint16_t value) {
+  Wire.beginTransmission(board::kExpanderAddr);
+  Wire.write(command);
+  Wire.write(static_cast<uint8_t>(value & 0xFF));
+  Wire.write(static_cast<uint8_t>(value >> 8));
+  const uint8_t err = Wire.endTransmission();
+  if (err != 0) Serial.printf("display: expander write 0x%02X failed (%u)\n", command, err);
 }
 
-void exioSet(uint8_t bit, bool high) {
-  s_exio = high ? (s_exio | bit) : (s_exio & ~bit);
-  ch422gWrite(board::kCh422gOutput, s_exio);
+void i2cScan(const char* when) {
+  Serial.printf("display: I2C scan %s:", when);
+  for (uint8_t addr = 1; addr < 127; ++addr) {
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0) Serial.printf(" 0x%02X", addr);
+  }
+  Serial.println();
+}
+
+void exioSet(uint16_t mask, bool high) {
+  s_exio = high ? (s_exio | mask) : (s_exio & ~mask);
+  expanderWrite(board::kExpanderOutput, s_exio);
 }
 
 bool gt911Write(uint16_t reg, uint8_t value) {
@@ -80,9 +93,9 @@ bool beginTouch() {
   // GT911 reset with INT low selects I2C address 0x5D.
   pinMode(board::kTouchInt, OUTPUT);
   digitalWrite(board::kTouchInt, LOW);
-  exioSet(board::kExioTouchReset, false);
+  exioSet(board::kIoTouchReset, false);
   delay(100);
-  exioSet(board::kExioTouchReset, true);
+  exioSet(board::kIoTouchReset, true);
   delay(200);
   pinMode(board::kTouchInt, INPUT);
 
@@ -168,23 +181,49 @@ void touchReadCb(lv_indev_t*, lv_indev_data_t* data) {
 
 }  // namespace
 
+// Frees a bus whose SDA is held low by a slave stuck mid-byte: clock SCL until SDA is released, then STOP.
+void i2cRecoverBus() {
+  pinMode(board::kI2cSda, INPUT_PULLUP);
+  pinMode(board::kI2cScl, INPUT_PULLUP);
+  delay(2);
+  Serial.printf("display: I2C lines before init: SDA=%d SCL=%d\n", digitalRead(board::kI2cSda),
+                digitalRead(board::kI2cScl));
+  if (digitalRead(board::kI2cSda) == HIGH) return;
+  pinMode(board::kI2cScl, OUTPUT_OPEN_DRAIN);
+  for (int i = 0; i < 9 && digitalRead(board::kI2cSda) == LOW; ++i) {
+    digitalWrite(board::kI2cScl, LOW);
+    delayMicroseconds(10);
+    digitalWrite(board::kI2cScl, HIGH);
+    delayMicroseconds(10);
+  }
+  pinMode(board::kI2cSda, OUTPUT_OPEN_DRAIN);  // STOP: SDA low -> high while SCL high
+  digitalWrite(board::kI2cSda, LOW);
+  delayMicroseconds(10);
+  digitalWrite(board::kI2cSda, HIGH);
+  pinMode(board::kI2cSda, INPUT_PULLUP);
+  pinMode(board::kI2cScl, INPUT_PULLUP);
+  Serial.printf("display: I2C lines after recovery: SDA=%d SCL=%d\n", digitalRead(board::kI2cSda),
+                digitalRead(board::kI2cScl));
+}
+
 bool displayBegin() {
-  Wire.begin(board::kI2cSda, board::kI2cScl, board::kI2cHz);
-  ch422gWrite(board::kCh422gMode, board::kCh422gModeOutputEnable);
-  s_exio = board::kExioTouchReset | board::kExioLcdReset | board::kExioSdCs;  // backlight off
-  ch422gWrite(board::kCh422gOutput, s_exio);
+  i2cRecoverBus();
+  const bool wireOk = Wire.begin(board::kI2cSda, board::kI2cScl, board::kI2cHz);
+  Serial.printf("display: Wire.begin(%d,%d,%u) -> %d\n", board::kI2cSda, board::kI2cScl,
+                static_cast<unsigned>(board::kI2cHz), wireOk);
+  i2cScan("before panel");
+  expanderWrite(board::kExpanderMode, 0xFFFF);  // all 16 IOs as outputs
+  s_exio = 0xFFFF & ~board::kIoBacklight;       // backlight off until displaySetBacklight(true)
+  expanderWrite(board::kExpanderOutput, s_exio);
 
   if (!beginPanel()) {
     Serial.println("display: RGB panel init failed");
     return false;
   }
+  i2cScan("after panel");
   if (!beginTouch()) {
-    Serial.print("display: GT911 not found; I2C devices:");
-    for (uint8_t addr = 1; addr < 127; ++addr) {
-      Wire.beginTransmission(addr);
-      if (Wire.endTransmission() == 0) Serial.printf(" 0x%02X", addr);
-    }
-    Serial.println();
+    Serial.println("display: GT911 not found");
+    i2cScan("after touch reset");
   }
 
   lv_init();
@@ -219,7 +258,7 @@ void displayTick() {
 
 void displaySetBacklight(bool on) {
   s_backlightOn = on;
-  exioSet(board::kExioBacklight, on);
+  exioSet(board::kIoBacklight, on);
 }
 
 bool displayBacklightOn() { return s_backlightOn; }

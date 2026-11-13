@@ -46,6 +46,10 @@ void onClick(lv_obj_t* obj, std::function<void()> fn);
 void later(std::function<void()> fn);
 // Keys 1-9, BACKSPACE, 0, HAPUS. onKey gets '0'..'9', '\b' (backspace) or 'c' (clear).
 lv_obj_t* numericKeypad(lv_obj_t* parent, int32_t w, int32_t h, std::function<void(char)> onKey);
+// Full-screen editor over the top layer, with the on-screen keyboard. onSave returns an error text, or "" to
+// accept. onClose runs after the overlay is dismissed, whatever the reason.
+void textEditor(const std::string& title, const std::string& initial, bool password, bool oneLine, size_t maxLen,
+                std::function<std::string(const std::string&)> onSave, std::function<void()> onClose);
 void confirm(const std::string& text, const std::string& yes, std::function<void()> onYes);
 
 // Screen builders (one file each). `root` is the content area under the status bar.

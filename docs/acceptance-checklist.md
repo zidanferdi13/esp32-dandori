@@ -1,6 +1,6 @@
 # Checklist Uji Terima di Perangkat
 
-Jalankan dengan board Waveshare ESP32-S3-Touch-LCD-7 dan mock lokal (`postman mock run postman/mocks/dandori --port 4500`). Isi kolom **Hasil** dengan ✅ / ❌ dan catatan.
+Jalankan dengan board Waveshare ESP32-S3-Touch-LCD-**7C** dan mock lokal (`postman mock run postman/mocks/dandori --port 4500`). Isi kolom **Hasil** dengan ✅ / ❌ dan catatan.
 
 Persiapan: Pengaturan → PIN `1234` → WiFi (pilih jaringan) → Server API `http://<IP-PC>:4500` → Tes koneksi = OK.
 Ubah mode mock dari PC: `curl -X POST localhost:4500/__mock/mode -H "Content-Type: application/json" -d '{"mo":"ok","downtime":"ok"}'`.
@@ -25,7 +25,7 @@ Lihat data yang masuk: `curl localhost:4500/__mock/received`.
 | 3 | **Restart saat Input kode** | Kembali ke layar Input kode dengan durasi yang sama | |
 | 4 | **Kirim offline**: mock `downtime=down`, catat 3 kejadian | 3 × ikon antri, badge di status bar = 3. RESET, lalu mock `downtime=ok` → ketiganya terkirim sekali; `/__mock/received` → `duplicates: []` | |
 | 5 | **Mock menolak (400)**: mock `downtime=400`, catat 1 kejadian | Layar hasil "Ditolak server (kode 400)", riwayat ✗, tidak dikirim ulang (`/__mock/received` hanya 1 untuk id itu) | |
-| 6 | **Tanpa NTP** | Log mock: `GET /api/mo tgl=(none)`; POST berisi `"start":null,"stop":null` dan `total_detik` benar | |
+| 6 | **Tanpa NTP** | Log mock: `GET /kanban/getMOPalletizer tgl=(none)`; POST berisi `"start":null,"stop":null` dan `total_detik` benar | |
 | 7 | **Hari produksi** (07:59 → kemarin, 08:00 → hari ini) | Diverifikasi oleh host test (`test_wib_time.cpp`), tidak bisa diatur di perangkat | host-verified |
 | 8 | **Start tidak sengaja**: START → STOP → Batal → Buang | Tidak ada data tersimpan/terkirim | |
 | 9 | **Ganti MO dikunci saat berjalan; dandori (kode 13)**: saat timer jalan, link Ganti MO tidak ada. Setelah KIRIM, Ganti MO → pilih MO berikutnya → START/STOP → 13 | Data dandori membawa MO baru | |
@@ -38,3 +38,6 @@ Lihat data yang masuk: `curl localhost:4500/__mock/received`.
 | 11 | Kode `27`, `0` di awal, kosong | KIRIM mati untuk 27/kosong; `0` di awal diabaikan | |
 | 12 | Mock `mo=empty`, lalu `mo=500` di layar Pilih MO | "Tidak ada MO untuk hari ini" / "Gagal ambil daftar MO (kode 500)"; MO aktif tidak berubah | |
 | 13 | PIN salah, lalu ganti PIN ke `4321`, RESET | PIN salah ditolak; setelah reset `1234` gagal, `4321` berhasil | |
+| 14 | **Catatan kosong**: STOP → ketik `13` → KIRIM tanpa membuka Catatan | POST berisi `"catatan":""`, layar Hasil tidak menampilkan baris catatan | |
+| 15 | **Catatan terisi**: STOP → ketik `13` → ketuk baris Catatan → tulis "bearing aus" → Simpan → KIRIM | Baris Catatan menampilkan teksnya; POST berisi `"catatan":"bearing aus"`; layar Hasil menampilkan `Catatan: bearing aus` | |
+| 16 | **Catatan panjang & multi-baris**: tulis ±300 karakter dengan Enter | Textarea berhenti di 255 karakter; baris Catatan tetap satu baris (dipotong `…`); tidak ada crash | |

@@ -14,6 +14,7 @@ DowntimeEvent sample() {
   e.startEpoch = wib(2026, 11, 9, 8, 15, 30);
   e.stopEpoch = wib(2026, 11, 9, 8, 21, 5);
   e.totalDetik = 335;
+  e.catatan = "bearing aus";
   e.id = makeEventId(e.mesin, e.startEpoch, 7);
   e.prodDate = "2026-11-09";
   return e;
@@ -42,7 +43,25 @@ TEST(api_json_with_clock) {
   CHECK_EQ(j["total_detik"].as<int>(), 335);
   CHECK_EQ(j["kode_problem"].as<int>(), 13);
   CHECK_EQ(j["mesin"].as<std::string>(), "PALLETIZER-01");
-  CHECK_EQ(j.as<JsonObject>().size(), 7u);
+  CHECK_EQ(j["catatan"].as<std::string>(), "bearing aus");
+  CHECK_EQ(j.as<JsonObject>().size(), 8u);
+}
+
+TEST(api_json_empty_catatan) {
+  DowntimeEvent e = sample();
+  e.catatan.clear();
+  const std::string raw = toApiJson(e);
+  JsonDocument j = parse(raw);
+  CHECK(j["catatan"].is<const char*>());  // always present, never null
+  CHECK_EQ(j["catatan"].as<std::string>(), "");
+  CHECK_EQ(j.as<JsonObject>().size(), 8u);
+}
+
+TEST(api_json_catatan_truncated) {
+  DowntimeEvent e = sample();
+  e.catatan.assign(300, 'x');
+  JsonDocument j = parse(toApiJson(e));
+  CHECK_EQ(j["catatan"].as<std::string>().size(), kMaxCatatanLen);
 }
 
 TEST(api_json_no_clock) {
@@ -72,6 +91,7 @@ TEST(storage_roundtrip) {
   CHECK_EQ(b.startEpoch, e.startEpoch);
   CHECK_EQ(b.stopEpoch, e.stopEpoch);
   CHECK_EQ(b.totalDetik, 335u);
+  CHECK_EQ(b.catatan, "bearing aus");
   CHECK(b.status == EventStatus::Rejected);
   CHECK(b.estimated);
   CHECK(!fromStorageJson("{garbage", b));

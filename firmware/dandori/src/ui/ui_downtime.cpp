@@ -16,8 +16,18 @@ constexpr uint32_t kResultWaitMs = 8000;
 constexpr uint32_t kResultHoldMs = 3000;
 
 std::string s_code;         // keypad input, survives a theme rebuild
+std::string s_catatan;      // operator note, survives a theme rebuild
 std::string s_resultId;     // event shown on the Result screen
 int s_moSelected = -1;
+
+// Notes may contain newlines; single-line labels need them collapsed.
+std::string oneLineText(const std::string& s) {
+  std::string out = s;
+  for (char& ch : out) {
+    if (ch == '\n' || ch == '\r' || ch == '\t') ch = ' ';
+  }
+  return out;
+}
 
 std::string durationText(uint32_t sec) {
   return std::to_string(sec / 60) + " mnt " + std::to_string(sec % 60) + " dtk";
@@ -227,7 +237,10 @@ void buildCounting(lv_obj_t* root) {
 
 // ---------- Input kode ----------
 
-void resetCodeEntry() { s_code.clear(); }
+void resetCodeEntry() {
+  s_code.clear();
+  s_catatan.clear();
+}
 
 void buildCodeInput(lv_obj_t* root) {
   AppContext& c = ctx();
@@ -260,12 +273,35 @@ void buildCodeInput(lv_obj_t* root) {
   lv_obj_center(codeLbl);
 
   lv_obj_t* preview = card(left);
-  lv_obj_set_size(preview, 380, 100);
-  lv_obj_align(preview, LV_ALIGN_TOP_LEFT, 0, 126);
+  lv_obj_set_size(preview, 380, 84);
+  lv_obj_align(preview, LV_ALIGN_TOP_LEFT, 0, 120);
   lv_obj_t* pvTop = label(preview, "", &lv_font_montserrat_16, lv_color_hex(kAmber));
   lv_obj_align(pvTop, LV_ALIGN_TOP_LEFT, 0, 0);
   lv_obj_t* pvSub = label(preview, "", &lv_font_montserrat_28, pal().fg);
   lv_obj_align(pvSub, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+
+  lv_obj_t* noteRow = card(left);
+  lv_obj_set_size(noteRow, 380, 40);
+  lv_obj_align(noteRow, LV_ALIGN_TOP_LEFT, 0, 212);
+  lv_obj_remove_flag(noteRow, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_style_pad_all(noteRow, 4, 0);
+  lv_obj_add_flag(noteRow, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_t* noteCap = label(noteRow, "Catatan (opsional)", &lv_font_montserrat_14, pal().muted);
+  lv_obj_align(noteCap, LV_ALIGN_TOP_LEFT, 0, -2);
+  lv_obj_t* noteVal = label(noteRow, "", &lv_font_montserrat_16, pal().fg);
+  lv_label_set_long_mode(noteVal, LV_LABEL_LONG_DOT);
+  lv_obj_set_width(noteVal, 330);
+  lv_obj_align(noteVal, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+  lv_obj_t* noteIcon = label(noteRow, LV_SYMBOL_EDIT, &lv_font_montserrat_16, pal().accent);
+  lv_obj_align(noteIcon, LV_ALIGN_RIGHT_MID, 0, 0);
+  onClick(noteRow, []() {
+    textEditor("Catatan downtime (opsional)", s_catatan, false, false, kMaxCatatanLen,
+               [](const std::string& v) {
+                 s_catatan = v;
+                 return std::string();
+               },
+               []() { uiGo(Screen::CodeInput); });
+  });
 
   lv_obj_t* cancel = button(left, "Batal", pal().card2, pal().fg, &lv_font_montserrat_20, 120, 110, []() {
     confirm("Yakin dibuang?\nDowntime ini tidak akan dicatat.", "Buang", []() {
@@ -282,7 +318,7 @@ void buildCodeInput(lv_obj_t* root) {
                           &lv_font_montserrat_28, 248, 110, nullptr);
   lv_obj_align(send, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
 
-  auto refresh = [codeLbl, pvTop, pvSub, send]() {
+  auto refresh = [codeLbl, pvTop, pvSub, noteVal, send]() {
     lv_label_set_text(codeLbl, s_code.c_str());
     const int value = keypadValue(s_code);
     const ProblemCode* p = findProblemCode(value);
@@ -295,6 +331,8 @@ void buildCodeInput(lv_obj_t* root) {
       lv_label_set_text(pvSub, s_code.empty() ? "Ketik kode 1-26" : "Kode tidak dikenal");
       lv_obj_set_style_text_color(pvSub, pal().muted, 0);
     }
+    lv_label_set_text(noteVal, s_catatan.empty() ? "Ketuk untuk menulis" : oneLineText(s_catatan).c_str());
+    lv_obj_set_style_text_color(noteVal, s_catatan.empty() ? pal().muted : pal().fg, 0);
     setEnabled(send, p != nullptr);
   };
   refresh();
@@ -306,6 +344,7 @@ void buildCodeInput(lv_obj_t* root) {
     DowntimeEvent e;
     e.mesin = cc.settings.machineCode;
     e.mo = cc.counter.activeMo();
+    e.catatan = s_catatan;
     e.kodeProblem = code;
     e.startEpoch = cc.counter.startEpoch();
     e.stopEpoch = cc.counter.stopEpoch();
@@ -356,8 +395,16 @@ void buildResult(lv_obj_t* root) {
   }
   lv_obj_t* sub = label(root, summary, &lv_font_montserrat_20, pal().muted);
   lv_obj_align(sub, LV_ALIGN_TOP_MID, 0, 200);
+  int32_t noteY = 250;
+  if (e && !e->catatan.empty()) {
+    lv_obj_t* cat = label(root, "Catatan: " + oneLineText(e->catatan), &lv_font_montserrat_16, pal().muted);
+    lv_label_set_long_mode(cat, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(cat, 720);
+    lv_obj_align(cat, LV_ALIGN_TOP_MID, 0, 232);
+    noteY = 272;
+  }
   lv_obj_t* note = label(root, "", &lv_font_montserrat_16, pal().muted);
-  lv_obj_align(note, LV_ALIGN_TOP_MID, 0, 250);
+  lv_obj_align(note, LV_ALIGN_TOP_MID, 0, noteY);
 
   const uint32_t shownAt = millis();
   struct State {

@@ -40,8 +40,9 @@ Akibatnya, alat harus **cepat dan sederhana**. Saat mesin trouble, operator tida
 
 ## 3. Batasan
 
-- **Hardware:** Waveshare **ESP32-S3-Touch-LCD-7**, layar 800×480, sentuh kapasitif. **[Keputusan user]**
-  - Builder perlu memastikan board ini bukan varian **7B** (1024×600). Kalau ternyata 7B, tata letak disesuaikan.
+- **Hardware:** Waveshare **ESP32-S3-Touch-LCD-7C**, layar 800×480, sentuh kapasitif. **[Keputusan user]**
+  - Varian **7C** (bukan non-C, bukan 7B). I2C di GPIO 47/48, expander 16-bit `0x24`, touch reset IO1, backlight IO2. Pinout: `firmware/dandori/board_config.h`.
+  - Flash 32 MB, PSRAM 16 MB octal. `partitions.csv` baru memakai 16 MB.
 - **Satu ESP32 untuk satu mesin.** **[Keputusan user]**
 - **Alat pemrograman: Arduino IDE.** **[Keputusan user]**
 - Library tampilan memakai **LVGL**, sama seperti demo bawaan Waveshare. **[Usulan Claude]**
@@ -98,7 +99,7 @@ Mockup kasar disimpan di `.superpowers/brainstorm/` (file `alur-layar.html` dan 
 1. **Pilih MO**: daftar dari `GET /api/mo`. Setiap baris menampilkan nomor MO, dan info produk kalau API menyediakannya. Ada tombol Refresh. Tap satu baris, lalu "Pilih MO ini".
 2. **Counting siap**: nomor MO aktif, timer `00:00:00` berwarna abu-abu, tombol **START** hijau yang sangat besar, ringkasan hari ini ("3 kejadian · 14 mnt 22 dtk"), link "Ganti MO", dan tombol kembali ke Home.
 3. **Counting berjalan**: seluruh layar bernuansa **merah**, teks "MESIN BERHENTI", timer besar yang terus berjalan, jam mulai, dan tombol **STOP** merah yang sangat besar. Warna merah dipakai di tema Light maupun Dark.
-4. **Input kode problem**: durasi dan rentang waktu di bar atas, kotak kode besar, keypad angka 0–9 dengan ⌫ dan Hapus, nama problem tampil langsung (contoh: "Loss Time · Palletizer · **Dandory Produk**"), tombol **KIRIM** dan **Batal**.
+4. **Input kode problem**: durasi dan rentang waktu di bar atas, kotak kode besar, keypad angka 0–9 dengan ⌫ dan Hapus, nama problem tampil langsung (contoh: "Loss Time · Palletizer · **Dandory Produk**"), baris **Catatan (opsional)** yang membuka keyboard layar penuh (teks bebas, maks 255 karakter), tombol **KIRIM** dan **Batal**.
 5. **Hasil**: "✓ Data terkirim" beserta ringkasan, lalu otomatis kembali ke Counting setelah sekitar 3 detik. Kalau gagal, tampil "Disimpan, akan dikirim ulang otomatis" dan badge jumlah antrian muncul di bar atas.
 
 Kembali ke Home dari Counting diperbolehkan, kecuali saat timer berjalan. **[Usulan Claude]**
@@ -196,12 +197,14 @@ Content-Type: application/json
   "mesin": "PALLETIZER-01",
   "mo": "MO-2611-0012",
   "kode_problem": 13,
+  "catatan": "bearing conveyor aus",
   "start": "2026-11-09T08:15:30+07:00",
   "stop": "2026-11-09T08:21:05+07:00",
   "total_detik": 335
 }
 ```
 - `mo`, `kode_problem`, `start`, `stop`, dan `total_detik` adalah field yang diminta user. **[Keputusan user]**
+- `catatan` adalah teks bebas dari operator (opsional di layar Input kode), dikirim selalu sebagai string dan berisi `""` bila tidak diisi. Firmware membatasinya 255 karakter; kolom DB bertipe text. **[Keputusan user]**
 - `mesin` ditambahkan karena satu ESP32 mewakili satu mesin, dan backend perlu tahu data berasal dari mesin mana. **[Usulan Claude]**
 - `id` adalah ID unik per kejadian yang dibuat ESP32, supaya kalau data dikirim ulang dari antrian, backend bisa mengenali data yang sama dan tidak mencatatnya dua kali. **[Usulan Claude]** Format persisnya diserahkan ke builder, asalkan unik per perangkat dan tetap unik setelah restart.
 - **Kalau jam belum sinkron NTP:** `start` dan `stop` dikirim `null` dan `total_detik` tetap terisi. Backend boleh memakai jam server sebagai perkiraan. **[Usulan Claude]**

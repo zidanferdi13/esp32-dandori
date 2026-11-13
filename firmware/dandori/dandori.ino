@@ -1,4 +1,4 @@
-// Dandori downtime recorder — Waveshare ESP32-S3-Touch-LCD-7.
+// Dandori downtime recorder — Waveshare ESP32-S3-Touch-LCD-7C.
 // Spec: docs/superpowers/specs/2026-11-09-dandori-downtime-design.md
 #include <lvgl.h>
 

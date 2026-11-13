@@ -11,13 +11,15 @@ info:
     - Whether the production API uses HTTPS and how the device should verify its certificate.
     - Token format; the device sends `Authorization: Bearer <token>` only when a token is configured.
 servers:
+  - url: https://services.ama.id
+    description: Production API
   - url: http://localhost:4500
     description: Local Postman mock
 security:
   - {}
   - bearerAuth: []
 paths:
-  /api/mo:
+  /kanban/getMOPalletizer:
     get:
       operationId: getMoList
       summary: List the MOs running on a production day
@@ -43,11 +45,12 @@ paths:
                   value:
                     tgl: "2026-11-09"
                     data:
-                      - mo: MO-2611-0012
-                        produk: Bata Ringan 10cm
-                      - mo: MO-2611-0013
-                        produk: Bata Ringan 7.5cm
-                      - mo: MO-2611-0015
+                      - nomor_mo: MO-2611-0012
+                        product_name: Bata Ringan 10cm
+                      - nomor_mo: MO-2611-0013
+                        product_name: Bata Ringan 7.5cm
+                      - nomor_mo: MO-2611-0015
+                        product_name: Bata Ringan 10cm
                 empty:
                   summary: No MO on this day
                   value:
@@ -62,7 +65,7 @@ paths:
               example:
                 status: error
                 message: Internal server error
-  /api/downtime:
+  /kanban/postDownTime:
     post:
       operationId: postDowntime
       summary: Record one downtime event
@@ -83,6 +86,7 @@ paths:
                   mesin: PALLETIZER-01
                   mo: MO-2611-0012
                   kode_problem: 13
+                  catatan: bearing conveyor aus
                   start: "2026-11-09T08:15:30+07:00"
                   stop: "2026-11-09T08:21:05+07:00"
                   total_detik: 335
@@ -93,6 +97,7 @@ paths:
                   mesin: PALLETIZER-01
                   mo: MO-2611-0012
                   kode_problem: 25
+                  catatan: ""
                   start: null
                   stop: null
                   total_detik: 42
@@ -141,16 +146,20 @@ components:
           type: array
           items:
             type: object
-            required: [mo]
+            required: [nomor_mo]
             properties:
-              mo:
+              nomor_mo:
                 type: string
-              produk:
+              product_name:
                 type: string
+                nullable: true
                 description: Optional; shown under the MO number on the device.
+              isactive:
+                type: integer
+                description: Items with isactive=0 are ignored by the device.
     DowntimeEvent:
       type: object
-      required: [id, mesin, mo, kode_problem, start, stop, total_detik]
+      required: [id, mesin, mo, kode_problem, catatan, start, stop, total_detik]
       properties:
         id:
           type: string
@@ -164,6 +173,12 @@ components:
           type: integer
           minimum: 1
           maximum: 26
+        catatan:
+          type: string
+          maxLength: 255
+          description: |
+            Free-text note typed by the operator on the device, may be empty. Always present
+            (empty string, never null). Firmware caps it at 255 characters.
         start:
           type: string
           format: date-time

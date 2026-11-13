@@ -24,6 +24,7 @@ std::string toApiJson(const DowntimeEvent& e) {
   doc["mesin"] = e.mesin;
   doc["mo"] = e.mo;
   doc["kode_problem"] = e.kodeProblem;
+  doc["catatan"] = e.catatan.substr(0, kMaxCatatanLen);
   if (isClockValid(e.startEpoch)) {
     doc["start"] = isoWib(e.startEpoch);
   } else {
@@ -45,6 +46,7 @@ std::string toStorageJson(const DowntimeEvent& e) {
   doc["id"] = e.id;
   doc["mesin"] = e.mesin;
   doc["mo"] = e.mo;
+  doc["cat"] = e.catatan;
   doc["pd"] = e.prodDate;
   doc["kode"] = e.kodeProblem;
   doc["s"] = e.startEpoch;
@@ -66,6 +68,7 @@ bool fromStorageJson(const std::string& s, DowntimeEvent& out) {
   e.id = doc["id"].as<std::string>();
   e.mesin = doc["mesin"] | "";
   e.mo = doc["mo"] | "";
+  e.catatan = doc["cat"] | "";
   e.prodDate = doc["pd"] | "";
   e.kodeProblem = doc["kode"] | 0;
   e.startEpoch = doc["s"] | static_cast<int64_t>(0);

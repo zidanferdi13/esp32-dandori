@@ -5,10 +5,14 @@
 
 enum class EventStatus { Pending, Sent, Rejected };
 
+// Operator note, free text. Always sent to the API (empty string when not filled).
+constexpr size_t kMaxCatatanLen = 255;
+
 struct DowntimeEvent {
   std::string id;
   std::string mesin;
   std::string mo;
+  std::string catatan;  // free text, "" when the operator did not write one
   std::string prodDate;  // production day of startEpoch, "" when the clock was unknown
   int kodeProblem = 0;
   int64_t startEpoch = 0;  // 0 = unknown clock
@@ -21,7 +25,7 @@ struct DowntimeEvent {
 
 // "<mesin>-YYYYMMDD-HHMMSS-<seq4>" with a valid clock, "<mesin>-NC-<seq6>" otherwise.
 std::string makeEventId(const std::string& mesin, int64_t startEpoch, uint32_t seq);
-// Exactly the keys id, mesin, mo, kode_problem, start, stop, total_detik.
+// Exactly the keys id, mesin, mo, kode_problem, catatan, start, stop, total_detik.
 std::string toApiJson(const DowntimeEvent& e);
 std::string toStorageJson(const DowntimeEvent& e);
 bool fromStorageJson(const std::string& s, DowntimeEvent& out);

@@ -103,7 +103,7 @@ void handle(const NetRequest& req) {
     case NetRequest::Send:
       res->kind = NetResult::SendDone;
       res->id = req.id;
-      res->httpStatus = httpCall(cfg, true, "/api/downtime", req.body, response);
+      res->httpStatus = httpCall(cfg, true, "/kanban/postDownTime", req.body, response);
       res->ok = res->httpStatus >= 200 && res->httpStatus < 300;
       break;
     case NetRequest::WifiScan: {

@@ -258,6 +258,63 @@ lv_obj_t* numericKeypad(lv_obj_t* parent, int32_t w, int32_t h, std::function<vo
   return grid;
 }
 
+void textEditor(const std::string& title, const std::string& initial, bool password, bool oneLine, size_t maxLen,
+                std::function<std::string(const std::string&)> onSave, std::function<void()> onClose) {
+  lv_obj_t* ov = lv_obj_create(lv_layer_top());
+  lv_obj_set_size(ov, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_pos(ov, 0, 0);
+  lv_obj_set_style_bg_color(ov, s_pal.bg, 0);
+  lv_obj_set_style_radius(ov, 0, 0);
+  lv_obj_set_style_border_width(ov, 0, 0);
+  lv_obj_remove_flag(ov, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t* t = label(ov, title, &lv_font_montserrat_20, s_pal.fg);
+  lv_obj_align(t, LV_ALIGN_TOP_LEFT, 16, 8);
+  lv_obj_t* err = label(ov, "", &lv_font_montserrat_16, lv_color_hex(kRed));
+  lv_obj_align(err, LV_ALIGN_TOP_RIGHT, -16, 12);
+
+  lv_obj_t* ta = lv_textarea_create(ov);
+  lv_textarea_set_one_line(ta, oneLine);
+  lv_textarea_set_password_mode(ta, password);
+  lv_textarea_set_max_length(ta, static_cast<uint32_t>(maxLen));
+  lv_textarea_set_text(ta, initial.c_str());
+  lv_obj_set_style_text_font(ta, oneLine ? &lv_font_montserrat_28 : &lv_font_montserrat_20, 0);
+  lv_obj_set_size(ta, LV_PCT(90), oneLine ? 64 : 130);
+  lv_obj_align(ta, LV_ALIGN_TOP_MID, 0, 40);
+
+  lv_obj_t* kb = lv_keyboard_create(ov);
+  lv_obj_set_size(kb, LV_PCT(100), 300);
+  lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_keyboard_set_textarea(kb, ta);
+
+  auto* finish = new std::function<void(bool)>([ov, ta, err, onSave, onClose](bool save) {
+    if (save) {
+      const std::string msg = onSave(lv_textarea_get_text(ta));
+      if (!msg.empty()) {
+        lv_label_set_text(err, msg.c_str());
+        return;
+      }
+    }
+    lv_obj_delete_async(ov);
+    onClose();
+  });
+  lv_obj_add_event_cb(
+      kb,
+      [](lv_event_t* e) {
+        auto* fn = static_cast<std::function<void(bool)>*>(lv_event_get_user_data(e));
+        switch (lv_event_get_code(e)) {
+          case LV_EVENT_READY: (*fn)(true); break;
+          case LV_EVENT_CANCEL: (*fn)(false); break;
+          case LV_EVENT_DELETE: delete fn; break;
+          default: break;
+        }
+      },
+      LV_EVENT_ALL, finish);
+  lv_obj_t* hint = label(ov, LV_SYMBOL_OK " = Simpan     " LV_SYMBOL_KEYBOARD " = Batal", &lv_font_montserrat_14,
+                         s_pal.muted);
+  lv_obj_align(hint, LV_ALIGN_TOP_LEFT, 16, oneLine ? 112 : 178);
+}
+
 void confirm(const std::string& text, const std::string& yes, std::function<void()> onYes) {
   lv_obj_t* mbox = lv_msgbox_create(nullptr);
   lv_obj_set_style_text_font(mbox, &lv_font_montserrat_20, 0);

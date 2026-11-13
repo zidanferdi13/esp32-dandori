@@ -3,8 +3,8 @@
 #include "test_helpers.h"
 
 TEST(mo_path) {
-  CHECK_EQ(moListPath(wib(2026, 11, 10, 2, 0, 0)), "/api/mo?tgl=2026-11-09");
-  CHECK_EQ(moListPath(0), "/api/mo");
+  CHECK_EQ(moListPath(wib(2026, 11, 10, 2, 0, 0)), "/kanban/getMOPalletizer?tgl=2026-11-09");
+  CHECK_EQ(moListPath(0), "/kanban/getMOPalletizer");
 }
 
 TEST(mo_parse) {
@@ -16,6 +16,23 @@ TEST(mo_parse) {
   CHECK_EQ(v[1].produk, "");
   CHECK(parseMoList(R"({"data":[]})", v));
   CHECK_EQ(v.size(), 0u);
+}
+
+TEST(mo_parse_palletizer) {
+  std::vector<MoItem> v;
+  CHECK(parseMoList(
+      R"({"respone_code":200,"respone_desc":"Success","data":[)"
+      R"({"nomor_mo":"WAN/MO/26/11/13287","product_name":"WAN Premix","isactive":1},)"
+      R"({"nomor_mo":"WAN/MO/26/11/13288","product_name":null,"isactive":0}]})",
+      v));
+  CHECK_EQ(v.size(), 1u);
+  CHECK_EQ(v[0].mo, "WAN/MO/26/11/13287");
+  CHECK_EQ(v[0].produk, "WAN Premix");
+}
+
+TEST(mo_parse_rejects_bad_respone_code) {
+  std::vector<MoItem> v;
+  CHECK(!parseMoList(R"({"respone_code":500,"data":[]})", v));
 }
 
 TEST(mo_parse_rejects_bad_bodies) {
