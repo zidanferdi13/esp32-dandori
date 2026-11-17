@@ -16,7 +16,7 @@ namespace ui {
 namespace {
 
 constexpr const char* kFwVersion = "0.1.0";
-constexpr int32_t kPaneW = 800 - 220 - 32;
+constexpr int32_t kPaneW = 800 - 224 - 16;
 
 enum class Item { Tampilan, Wifi, Server, Mesin, Jam, Keamanan, Tentang };
 struct MenuEntry {
@@ -34,6 +34,7 @@ const MenuEntry kMenu[] = {
 Item s_item = Item::Tampilan;
 bool s_unlocked = false;
 lv_obj_t* s_pane = nullptr;
+std::string s_pinFirst;
 
 void showPane();
 
@@ -50,7 +51,7 @@ lv_obj_t* paneTitle(const std::string& text) {
 // A tappable row: title + current value, opens `onTap`.
 lv_obj_t* row(const std::string& title, const std::string& value, std::function<void()> onTap) {
   lv_obj_t* r = card(s_pane);
-  lv_obj_set_size(r, LV_PCT(100), 64);
+  lv_obj_set_size(r, LV_PCT(100), 72);
   lv_obj_remove_flag(r, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_t* t = label(r, title, &lv_font_montserrat_16, pal().muted);
   lv_obj_align(t, LV_ALIGN_TOP_LEFT, 0, -4);
@@ -77,7 +78,7 @@ void editText(const std::string& title, const std::string& initial, bool passwor
 void segmented(lv_obj_t* parent, const std::vector<std::string>& options, int selected, std::function<void(int)> fn) {
   lv_obj_t* box = lv_obj_create(parent);
   lv_obj_remove_style_all(box);
-  lv_obj_set_size(box, LV_PCT(100), 56);
+  lv_obj_set_size(box, LV_PCT(100), 60);
   lv_obj_set_flex_flow(box, LV_FLEX_FLOW_ROW);
   lv_obj_set_style_pad_gap(box, 8, 0);
   // Layout has not run yet, so use the pane's fixed width rather than lv_obj_get_content_width().
@@ -87,8 +88,8 @@ void segmented(lv_obj_t* parent, const std::vector<std::string>& options, int se
   for (size_t i = 0; i < options.size(); ++i) {
     const bool on = static_cast<int>(i) == selected;
     const int index = static_cast<int>(i);
-    button(box, options[i], on ? pal().accent : pal().card2, on ? lv_color_hex(0xFFFFFF) : pal().fg,
-           &lv_font_montserrat_16, w, 52, [fn, index]() { fn(index); });
+    button(box, options[i], on ? pal().accent : pal().card2, on ? pal().onAccent : pal().fg,
+           &lv_font_montserrat_16, w, 56, [fn, index]() { fn(index); });
   }
 }
 
@@ -118,8 +119,7 @@ void paneWifi() {
   const Settings& s = ctx().settings;
   const std::string status = netWifiConnected() ? s.wifiSsid + "  (terhubung, " + netIp() + ")"
                                                 : (s.wifiSsid.empty() ? std::string("Belum diatur")
-                                                                      : s.wifiSsid + "  (belum terhubung)");
-  row("Jaringan saat ini", status, nullptr);
+                                                                      : s.wifiSsid + "  (belum terhubung)");  row("Jaringan saat ini", status, nullptr);
   lv_obj_t* scan = button(s_pane, LV_SYMBOL_REFRESH "  Cari jaringan", pal().card2, pal().fg, &lv_font_montserrat_16,
                           LV_PCT(100), 48, nullptr);
   lv_obj_t* list = lv_obj_create(s_pane);
@@ -136,7 +136,11 @@ void paneWifi() {
   hooks().onNet = [list](const NetResult& r) {
     if (r.kind != NetResult::WifiScan) return;
     lv_obj_clean(list);
-    if (r.ssids.empty()) label(list, "Tidak ada jaringan ditemukan", &lv_font_montserrat_16, pal().muted);
+    if (!r.ok) {
+      label(list, r.error.empty() ? "Pemindaian gagal" : r.error, &lv_font_montserrat_16, pal().muted);
+    } else if (r.ssids.empty()) {
+      label(list, "Tidak ada jaringan ditemukan", &lv_font_montserrat_16, pal().muted);
+    }
     for (const std::string& entry : r.ssids) {
       const size_t t1 = entry.find('\t');
       const size_t t2 = entry.find('\t', t1 + 1);
@@ -144,7 +148,7 @@ void paneWifi() {
       const std::string rssi = entry.substr(t1 + 1, t2 - t1 - 1);
       const bool secured = entry.substr(t2 + 1) == "1";
       lv_obj_t* b = button(list, ssid + "   " + rssi + " dBm" + (secured ? "   (terkunci)" : ""), pal().card,
-                           pal().fg, &lv_font_montserrat_16, LV_PCT(100), 48, nullptr);
+                           pal().fg, &lv_font_montserrat_16, LV_PCT(100), 56, nullptr);
       onClick(b, [ssid, secured]() {
         auto apply = [ssid](const std::string& pass) {
           ctx().settings.wifiSsid = ssid;
@@ -205,17 +209,16 @@ void paneServer() {
       text = "Gagal (kode " + std::to_string(r.httpStatus) + ")";
     }
     lv_label_set_text(testResult, text.c_str());
-    lv_obj_set_style_text_color(testResult, lv_color_hex(r.httpStatus >= 200 && r.httpStatus < 300 ? kGreen : kRed),
-                                0);
+    lv_obj_set_style_text_color(testResult,
+                                r.httpStatus >= 200 && r.httpStatus < 300 ? pal().success : pal().danger, 0);
   };
 
   const size_t pending = ctx().store.pendingCount();
   lv_obj_t* q = row("Antrian belum terkirim", std::to_string(pending) + " data", nullptr);
-  lv_obj_t* resend = button(q, "Kirim ulang", pal().accent, lv_color_hex(0xFFFFFF), &lv_font_montserrat_16, 150, 40,
-                            []() {
-                              ctx().outbox.kick();
-                              toast("Mengirim ulang antrian...");
-                            });
+  lv_obj_t* resend = button(q, "Kirim ulang", pal().accent, pal().onAccent, &lv_font_montserrat_16, 160, 56, []() {
+    ctx().outbox.kick();
+    toast("Mengirim ulang antrian...");
+  });
   lv_obj_align(resend, LV_ALIGN_RIGHT_MID, 0, 0);
 }
 
@@ -256,7 +259,7 @@ void pinPad(const std::string& prompt, std::function<void(const std::string&)> o
   auto entered = std::make_shared<std::string>();
   paneTitle(prompt);
   lv_obj_t* dots = label(s_pane, "_ _ _ _", &lv_font_montserrat_28, pal().fg);
-  numericKeypad(s_pane, 330, 250, [entered, dots, onComplete](char k) {
+  numericKeypad(s_pane, 320, 260, [entered, dots, onComplete](char k) {
     if (k == '\b') {
       if (!entered->empty()) entered->pop_back();
     } else if (k == 'c') {
@@ -288,22 +291,24 @@ void paneLocked() {
 }
 
 void paneKeamanan() {
-  auto first = std::make_shared<std::string>();
-  pinPad("PIN baru (4 angka)", [first](const std::string& pin) {
-    if (first->empty()) {
-      *first = pin;
+  pinPad(s_pinFirst.empty() ? "PIN baru (4 angka)" : "Ulangi PIN baru", [](const std::string& pin) {
+    if (s_pinFirst.empty()) {
+      s_pinFirst = pin;
       toast("Ulangi PIN baru");
+      later(showPane);
       return;
     }
-    if (pin != *first || !isValidPin(pin)) {
-      first->clear();
+    if (pin != s_pinFirst || !isValidPin(pin)) {
+      s_pinFirst.clear();
       toast("PIN tidak sama, ulangi dari awal");
+      later(showPane);
       return;
     }
     ctx().settings.pin = pin;
     saveSettings();
-    first->clear();
-    toast("PIN diganti");
+    s_pinFirst.clear();
+    toast("PIN berhasil diganti");
+    later(showPane);
   });
 }
 
@@ -347,28 +352,29 @@ void showPane() {
 void lockSettings() {
   s_unlocked = false;
   s_pane = nullptr;
+  s_pinFirst.clear();
 }
 
 void buildPinLock(lv_obj_t* root) { buildSettings(root); }
 
 void buildSettings(lv_obj_t* root) {
   lv_obj_t* side = lv_obj_create(root);
-  lv_obj_set_size(side, 220, LV_PCT(100));
+  lv_obj_set_size(side, 208, LV_PCT(100));
   lv_obj_align(side, LV_ALIGN_LEFT_MID, 0, 0);
   lv_obj_set_style_bg_color(side, pal().card, 0);
   lv_obj_set_style_radius(side, 0, 0);
   lv_obj_set_style_border_width(side, 0, 0);
   lv_obj_set_flex_flow(side, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_all(side, 8, 0);
-  lv_obj_set_style_pad_row(side, 4, 0);
+  lv_obj_set_style_pad_row(side, 2, 0);
 
-  button(side, LV_SYMBOL_HOME "  Home", pal().card2, pal().fg, &lv_font_montserrat_16, LV_PCT(100), 44,
+  button(side, LV_SYMBOL_HOME "  Home", pal().card2, pal().fg, &lv_font_montserrat_16, LV_PCT(100), 48,
          []() { uiGo(Screen::Home); });
   for (const auto& m : kMenu) {
     const bool on = m.item == s_item;
     const Item item = m.item;
     button(side, m.text, on ? pal().accentSoft : pal().card, on ? pal().accent : pal().muted, &lv_font_montserrat_16,
-           LV_PCT(100), 46, [item]() {
+           LV_PCT(100), 48, [item]() {
              s_item = item;
              uiGo(Screen::Settings);  // rebuild to move the highlight
            });

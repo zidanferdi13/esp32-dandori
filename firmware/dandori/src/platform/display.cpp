@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr int kDrawBufLines = 48;
+constexpr int kDrawBufLines = 16;  // two 25 KB buffers, kept in internal SRAM (see displayBegin)
 constexpr uint8_t kGt911AddrA = 0x5D;
 constexpr uint8_t kGt911AddrB = 0x14;
 constexpr uint16_t kGt911RegStatus = 0x814E;  // bit7 = data ready, low nibble = touch count
@@ -151,6 +151,14 @@ void flushCb(lv_display_t* disp, const lv_area_t* area, uint8_t* px) {
   // Copies into the driver's PSRAM frame buffer; the buffer can be reused right after.
   esp_lcd_panel_draw_bitmap(s_panel, area->x1, area->y1, area->x2 + 1, area->y2 + 1, px);
   lv_display_flush_ready(disp);
+  static uint32_t calls = 0;
+  static uint32_t lastLogMs = 0;
+  ++calls;
+  if (calls == 1 || (calls % 200 == 0 && millis() - lastLogMs > 5000)) {
+    lastLogMs = millis();
+    Serial.printf("display: flush #%lu area=%d,%d %dx%d\n", static_cast<unsigned long>(calls), area->x1, area->y1,
+                  area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
+  }
 }
 
 void touchReadCb(lv_indev_t*, lv_indev_data_t* data) {
@@ -229,11 +237,15 @@ bool displayBegin() {
   lv_init();
   lv_tick_set_cb(tickMillis);
 
+  // Internal SRAM: LVGL writes here while the RGB DMA reads the PSRAM frame buffer, so keeping
+  // the draw buffers out of PSRAM halves the traffic on the bus the panel depends on.
   const size_t bufBytes = board::kScreenW * kDrawBufLines * sizeof(uint16_t);
-  void* buf1 = heap_caps_malloc(bufBytes, MALLOC_CAP_SPIRAM);
-  void* buf2 = heap_caps_malloc(bufBytes, MALLOC_CAP_SPIRAM);
+  void* buf1 = heap_caps_malloc(bufBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  void* buf2 = heap_caps_malloc(bufBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   if (!buf1 || !buf2) {
-    Serial.println("display: draw buffer alloc failed");
+    Serial.printf("display: draw buffer alloc failed (%u B each, %u B internal free)\n",
+                  static_cast<unsigned>(bufBytes),
+                  static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)));
     return false;
   }
   lv_display_t* disp = lv_display_create(board::kScreenW, board::kScreenH);

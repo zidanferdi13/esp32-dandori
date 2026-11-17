@@ -13,11 +13,13 @@ namespace {
 constexpr uint32_t kRestoreWaitMs = 20000;  // wait this long for NTP before resuming a timer without a clock
 
 const Palette kDarkPalette = {
-    lv_color_hex(0x11161C), lv_color_hex(0x1B222B), lv_color_hex(0x232C37), lv_color_hex(0xE8EDF2),
-    lv_color_hex(0x8496A8), lv_color_hex(0x2D6CDF), lv_color_hex(0x1D2A3D)};
+    lv_color_hex(0x101418), lv_color_hex(0x171D23), lv_color_hex(0x232C37), lv_color_hex(0xECE7DE),
+    lv_color_hex(0xA7B0BA), lv_color_hex(0x2364C4), lv_color_hex(0x232C37),
+    lv_color_hex(0xE8776B), lv_color_hex(0x58B98A), lv_color_hex(0xF2B75C), lv_color_hex(0xF3F5F8)};
 const Palette kLightPalette = {
-    lv_color_hex(0xF3F5F8), lv_color_hex(0xFFFFFF), lv_color_hex(0xE7ECF2), lv_color_hex(0x18202A),
-    lv_color_hex(0x6A7787), lv_color_hex(0x2D6CDF), lv_color_hex(0xE3EDFF)};
+    lv_color_hex(0xF1EEE8), lv_color_hex(0xFAF8F4), lv_color_hex(0xE4DED4), lv_color_hex(0x16191D),
+    lv_color_hex(0x5A626B), lv_color_hex(0x2364C4), lv_color_hex(0xE4DED4),
+    lv_color_hex(0xB23A2C), lv_color_hex(0x1F6B45), lv_color_hex(0x8A5A00), lv_color_hex(0xF3F5F8)};
 
 AppContext* s_ctx = nullptr;
 Palette s_pal = kDarkPalette;
@@ -45,8 +47,13 @@ void buildStatusBar(lv_obj_t* scr) {
   lv_obj_set_style_pad_hor(s_statusBar, 14, 0);
   lv_obj_remove_flag(s_statusBar, LV_OBJ_FLAG_SCROLLABLE);
   s_statusLeft = label(s_statusBar, "", &lv_font_montserrat_16, s_pal.fg);
+  lv_obj_set_width(s_statusLeft, 320);
+  lv_label_set_long_mode(s_statusLeft, LV_LABEL_LONG_DOT);
   lv_obj_align(s_statusLeft, LV_ALIGN_LEFT_MID, 0, 0);
   s_statusRight = label(s_statusBar, "", &lv_font_montserrat_16, s_pal.muted);
+  lv_obj_set_width(s_statusRight, 420);
+  lv_label_set_long_mode(s_statusRight, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_align(s_statusRight, LV_TEXT_ALIGN_RIGHT, 0);
   lv_obj_align(s_statusRight, LV_ALIGN_RIGHT_MID, 0, 0);
   setStatusBarAlert(s_statusAlert);
 }
@@ -54,14 +61,13 @@ void buildStatusBar(lv_obj_t* scr) {
 void refreshStatusBar() {
   if (!s_statusLeft) return;
   const AppContext& c = ctx();
-  std::string left = c.settings.machineCode + "   |   MO: " +
-                     (c.counter.activeMo().empty() ? std::string("-") : c.counter.activeMo());
+  std::string left = c.settings.machineCode;
   lv_label_set_text(s_statusLeft, left.c_str());
 
   std::string right;
   const int64_t now = nowEpoch();
   if (clockSynced()) right += "Shift " + std::to_string(shiftOf(now)) + "    ";
-  right += netWifiConnected() ? LV_SYMBOL_WIFI : LV_SYMBOL_WARNING " WiFi";
+  right += netWifiConnected() ? LV_SYMBOL_WIFI " Online" : LV_SYMBOL_WARNING " Offline";
   const size_t pending = c.store.pendingCount();
   if (pending > 0) right += std::string("    " LV_SYMBOL_UPLOAD " ") + std::to_string(pending);
   right += "    ";
@@ -86,7 +92,8 @@ void rebuildScreen() {
   s_hooks = Hooks{};
   setStatusBarAlert(false);
   if (s_restorePending) {
-    lv_obj_t* l = label(s_content, "Memulihkan downtime...\nMenunggu sinkron jam", &lv_font_montserrat_28, s_pal.fg);
+    lv_obj_t* l = label(s_content, "Memulihkan pencatatan downtime\nMenunggu sinkronisasi jam",
+                        &lv_font_montserrat_28, s_pal.fg);
     lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(l);
   } else {
@@ -131,8 +138,8 @@ void finishRestore(bool clockOk) {
   s_restorePending = false;
   persistCounter();
   if (c.counter.state() == CounterState::Running) {
-    toast(c.counter.estimated() ? std::string("Downtime dilanjutkan (durasi perkiraan)")
-                                : "Downtime dilanjutkan sejak " + hhmmss(c.counter.startEpoch()));
+    toast(c.counter.estimated() ? std::string("Pencatatan dilanjutkan (durasi perkiraan)")
+                                : "Pencatatan dilanjutkan sejak " + hhmmss(c.counter.startEpoch()));
   }
   uiGo(screenForState(c.counter.state()));
 }
@@ -157,12 +164,12 @@ std::string prodDateNow() { return clockSynced() ? productionDate(nowEpoch()) : 
 void toast(const std::string& text) {
   lv_obj_t* box = lv_obj_create(lv_layer_top());
   lv_obj_set_size(box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  lv_obj_set_style_bg_color(box, lv_color_hex(0x000000), 0);
-  lv_obj_set_style_bg_opa(box, LV_OPA_80, 0);
-  lv_obj_set_style_radius(box, 10, 0);
+  lv_obj_set_style_bg_color(box, dark() ? s_pal.card2 : s_pal.fg, 0);
+  lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
+  lv_obj_set_style_radius(box, 8, 0);
   lv_obj_set_style_border_width(box, 0, 0);
-  lv_obj_set_style_pad_all(box, 14, 0);
-  label(box, text, &lv_font_montserrat_20, lv_color_hex(0xFFFFFF));
+  lv_obj_set_style_pad_all(box, 16, 0);
+  label(box, text, &lv_font_montserrat_20, dark() ? s_pal.fg : s_pal.card);
   lv_obj_align(box, LV_ALIGN_BOTTOM_MID, 0, -24);
   lv_timer_t* t = lv_timer_create(toastDone, 3500, box);
   lv_timer_set_repeat_count(t, 1);
@@ -171,9 +178,9 @@ void toast(const std::string& text) {
 void setStatusBarAlert(bool alert) {
   s_statusAlert = alert;
   if (!s_statusBar) return;
-  lv_obj_set_style_bg_color(s_statusBar, alert ? lv_color_hex(kRed) : s_pal.card, 0);
-  lv_obj_set_style_text_color(s_statusLeft, alert ? lv_color_hex(0xFFFFFF) : s_pal.fg, 0);
-  lv_obj_set_style_text_color(s_statusRight, alert ? lv_color_hex(0xFFFFFF) : s_pal.muted, 0);
+  lv_obj_set_style_bg_color(s_statusBar, alert ? s_pal.danger : s_pal.card, 0);
+  lv_obj_set_style_text_color(s_statusLeft, alert ? s_pal.onAccent : s_pal.fg, 0);
+  lv_obj_set_style_text_color(s_statusRight, alert ? s_pal.onAccent : s_pal.muted, 0);
 }
 
 lv_obj_t* label(lv_obj_t* parent, const std::string& text, const lv_font_t* font, lv_color_t color) {
@@ -209,8 +216,15 @@ lv_obj_t* button(lv_obj_t* parent, const std::string& text, lv_color_t bg, lv_co
   lv_obj_t* b = lv_button_create(parent);
   lv_obj_set_size(b, w, h);
   lv_obj_set_style_bg_color(b, bg, 0);
-  lv_obj_set_style_radius(b, 12, 0);
+  lv_obj_set_style_radius(b, 8, 0);
   lv_obj_set_style_shadow_width(b, 0, 0);
+  lv_obj_set_style_pad_all(b, 8, 0);
+  lv_obj_set_style_bg_color(b, lv_color_darken(bg, LV_OPA_20), LV_STATE_PRESSED);
+  lv_obj_set_style_outline_color(b, dark() ? s_pal.warning : s_pal.accent, LV_STATE_FOCUS_KEY);
+  lv_obj_set_style_outline_width(b, 3, LV_STATE_FOCUS_KEY);
+  lv_obj_set_style_outline_pad(b, 3, LV_STATE_FOCUS_KEY);
+  lv_obj_set_style_bg_color(b, s_pal.card2, LV_STATE_DISABLED);
+  lv_obj_add_flag(b, LV_OBJ_FLAG_STATE_TRICKLE);  // disabled/pressed reach the label so its colour follows
   lv_obj_t* l = label(b, text, font, fg);
   lv_obj_center(l);
   if (fn) onClick(b, std::move(fn));
@@ -222,7 +236,7 @@ lv_obj_t* card(lv_obj_t* parent) {
   lv_obj_set_style_bg_color(c, s_pal.card, 0);
   lv_obj_set_style_border_color(c, s_pal.card2, 0);
   lv_obj_set_style_border_width(c, 1, 0);
-  lv_obj_set_style_radius(c, 12, 0);
+  lv_obj_set_style_radius(c, 8, 0);
   lv_obj_set_style_pad_all(c, 12, 0);
   return c;
 }
@@ -233,7 +247,10 @@ void setEnabled(lv_obj_t* btn, bool enabled) {
     lv_obj_set_style_opa(btn, LV_OPA_COVER, 0);
   } else {
     lv_obj_add_state(btn, LV_STATE_DISABLED);
-    lv_obj_set_style_opa(btn, LV_OPA_40, 0);
+    lv_obj_set_style_opa(btn, LV_OPA_COVER, 0);
+    lv_obj_set_style_text_color(btn, s_pal.muted, LV_STATE_DISABLED);
+    for (uint32_t i = 0; i < lv_obj_get_child_count(btn); ++i)
+      lv_obj_set_style_text_color(lv_obj_get_child(btn, i), s_pal.muted, LV_STATE_DISABLED);
   }
 }
 
@@ -251,7 +268,7 @@ lv_obj_t* numericKeypad(lv_obj_t* parent, int32_t w, int32_t h, std::function<vo
   for (int i = 0; i < 12; ++i) {
     const char code = kCodes[i];
     const bool special = code == '\b' || code == 'c';
-    button(grid, kKeys[i], special ? lv_color_hex(0x4A2A2A) : s_pal.card2, special ? lv_color_hex(0xFFFFFF) : s_pal.fg,
+    button(grid, kKeys[i], special ? s_pal.card2 : s_pal.card, special ? s_pal.danger : s_pal.fg,
            special && code == 'c' ? &lv_font_montserrat_20 : &lv_font_montserrat_28, kw, kh,
            [onKey, code]() { onKey(code); });
   }
@@ -264,14 +281,17 @@ void textEditor(const std::string& title, const std::string& initial, bool passw
   lv_obj_set_size(ov, LV_PCT(100), LV_PCT(100));
   lv_obj_set_pos(ov, 0, 0);
   lv_obj_set_style_bg_color(ov, s_pal.bg, 0);
+  lv_obj_set_style_pad_all(ov, 0, 0);
   lv_obj_set_style_radius(ov, 0, 0);
   lv_obj_set_style_border_width(ov, 0, 0);
   lv_obj_remove_flag(ov, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t* t = label(ov, title, &lv_font_montserrat_20, s_pal.fg);
+  lv_obj_set_width(t, 768);
   lv_obj_align(t, LV_ALIGN_TOP_LEFT, 16, 8);
-  lv_obj_t* err = label(ov, "", &lv_font_montserrat_16, lv_color_hex(kRed));
-  lv_obj_align(err, LV_ALIGN_TOP_RIGHT, -16, 12);
+  lv_obj_t* err = label(ov, "", &lv_font_montserrat_16, s_pal.danger);
+  lv_obj_set_width(err, 768);
+  lv_obj_align(err, LV_ALIGN_TOP_LEFT, 16, 172);
 
   lv_obj_t* ta = lv_textarea_create(ov);
   lv_textarea_set_one_line(ta, oneLine);
@@ -279,11 +299,11 @@ void textEditor(const std::string& title, const std::string& initial, bool passw
   lv_textarea_set_max_length(ta, static_cast<uint32_t>(maxLen));
   lv_textarea_set_text(ta, initial.c_str());
   lv_obj_set_style_text_font(ta, oneLine ? &lv_font_montserrat_28 : &lv_font_montserrat_20, 0);
-  lv_obj_set_size(ta, LV_PCT(90), oneLine ? 64 : 130);
+  lv_obj_set_size(ta, 768, oneLine ? 64 : 100);
   lv_obj_align(ta, LV_ALIGN_TOP_MID, 0, 40);
 
   lv_obj_t* kb = lv_keyboard_create(ov);
-  lv_obj_set_size(kb, LV_PCT(100), 300);
+  lv_obj_set_size(kb, LV_PCT(100), 280);
   lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
   lv_keyboard_set_textarea(kb, ta);
 
@@ -310,18 +330,20 @@ void textEditor(const std::string& title, const std::string& initial, bool passw
         }
       },
       LV_EVENT_ALL, finish);
-  lv_obj_t* hint = label(ov, LV_SYMBOL_OK " = Simpan     " LV_SYMBOL_KEYBOARD " = Batal", &lv_font_montserrat_14,
+  lv_obj_t* hint = label(ov, LV_SYMBOL_OK " = Simpan     " LV_SYMBOL_KEYBOARD " = Batal", &lv_font_montserrat_16,
                          s_pal.muted);
-  lv_obj_align(hint, LV_ALIGN_TOP_LEFT, 16, oneLine ? 112 : 178);
+  lv_obj_align(hint, LV_ALIGN_TOP_LEFT, 16, oneLine ? 112 : 148);
 }
 
 void confirm(const std::string& text, const std::string& yes, std::function<void()> onYes) {
   lv_obj_t* mbox = lv_msgbox_create(nullptr);
   lv_obj_set_style_text_font(mbox, &lv_font_montserrat_20, 0);
   lv_msgbox_add_text(mbox, text.c_str());
-  lv_obj_t* no = lv_msgbox_add_footer_button(mbox, "Tidak");
+  lv_obj_t* no = lv_msgbox_add_footer_button(mbox, "Tetap isi");
   lv_obj_t* ok = lv_msgbox_add_footer_button(mbox, yes.c_str());
   lv_obj_set_style_bg_color(ok, lv_color_hex(kRed), 0);
+  lv_obj_set_height(no, 56);
+  lv_obj_set_height(ok, 56);
   onClick(no, [mbox]() { lv_msgbox_close_async(mbox); });
   onClick(ok, [mbox, onYes]() {
     lv_msgbox_close_async(mbox);
@@ -349,8 +371,8 @@ void uiBegin(AppContext& c) {
       first = screenForState(c.counter.state());
       if (c.counter.state() == CounterState::Running) {
         s_restoreSnap = snap;
-        toast(c.counter.estimated() ? std::string("Downtime dilanjutkan (durasi perkiraan)")
-                                    : "Downtime dilanjutkan sejak " + hhmmss(c.counter.startEpoch()));
+        toast(c.counter.estimated() ? std::string("Pencatatan dilanjutkan (durasi perkiraan)")
+                                    : "Pencatatan dilanjutkan sejak " + hhmmss(c.counter.startEpoch()));
       }
     }
   }

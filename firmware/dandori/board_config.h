@@ -34,8 +34,9 @@ constexpr int kPinB[5] = {14, 38, 18, 17, 10};
 constexpr uint16_t kHsyncPolarity = 0, kHsyncFrontPorch = 8, kHsyncPulseWidth = 4, kHsyncBackPorch = 8;
 constexpr uint16_t kVsyncPolarity = 0, kVsyncFrontPorch = 8, kVsyncPulseWidth = 4, kVsyncBackPorch = 8;
 constexpr uint16_t kPclkActiveNeg = 1;
+// Restore the pixel clock at which this panel previously displayed an image.
 constexpr int32_t kPclkHz = 16000000;
-// Bounce buffer in internal RAM so the RGB panel never reads PSRAM directly.
-constexpr size_t kBounceBufferPx = 800 * 10;
+// Two internal DMA buffers; these absorb short bandwidth spikes, not flash-cache outages.
+constexpr size_t kBounceBufferPx = 800 * 20;
 
 }  // namespace board

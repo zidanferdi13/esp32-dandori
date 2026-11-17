@@ -11,11 +11,10 @@ namespace ui {
 
 struct Palette {
   lv_color_t bg, card, card2, fg, muted, accent, accentSoft;
+  lv_color_t danger, success, warning, onAccent;
 };
 
-constexpr uint32_t kGreen = 0x1F9D55;
-constexpr uint32_t kRed = 0xD63C3C;
-constexpr uint32_t kAmber = 0xF2C94C;
+constexpr uint32_t kRed = 0xA62F36;
 constexpr int kStatusBarH = 44;
 
 AppContext& ctx();

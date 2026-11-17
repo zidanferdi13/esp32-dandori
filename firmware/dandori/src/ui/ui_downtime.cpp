@@ -53,7 +53,7 @@ void showMoList(lv_obj_t* area, lv_obj_t* chooseBtn) {
   lv_obj_clean(area);
   const auto& mos = ctx().lastMoList;
   if (mos.empty()) {
-    lv_obj_t* l = label(area, "Tidak ada MO untuk hari ini", &lv_font_montserrat_20, pal().muted);
+    lv_obj_t* l = label(area, "Tidak ada MO tersedia", &lv_font_montserrat_20, pal().muted);
     lv_obj_center(l);
     return;
   }
@@ -65,18 +65,24 @@ void showMoList(lv_obj_t* area, lv_obj_t* chooseBtn) {
   lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE);
   for (size_t i = 0; i < mos.size(); ++i) {
     lv_obj_t* row = card(list);
-    lv_obj_set_size(row, LV_PCT(100), mos[i].produk.empty() ? 56 : 72);
+    lv_obj_set_size(row, LV_PCT(100), mos[i].produk.empty() ? 72 : 80);
     lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
     if (static_cast<int>(i) == s_moSelected) {
       lv_obj_set_style_border_color(row, pal().accent, 0);
-      lv_obj_set_style_border_width(row, 3, 0);
+      lv_obj_set_style_border_width(row, 2, 0);
       lv_obj_set_style_bg_color(row, pal().accentSoft, 0);
+      lv_obj_t* check = label(row, LV_SYMBOL_OK, &lv_font_montserrat_20, pal().accent);
+      lv_obj_align(check, LV_ALIGN_RIGHT_MID, 0, 0);
     }
     lv_obj_t* mo = label(row, mos[i].mo, &lv_font_montserrat_20, pal().fg);
+    lv_obj_set_width(mo, 660);
+    lv_label_set_long_mode(mo, LV_LABEL_LONG_DOT);
     lv_obj_align(mo, LV_ALIGN_TOP_LEFT, 0, 0);
     if (!mos[i].produk.empty()) {
       lv_obj_t* p = label(row, mos[i].produk, &lv_font_montserrat_16, pal().muted);
+      lv_obj_set_width(p, 660);
+      lv_label_set_long_mode(p, LV_LABEL_LONG_DOT);
       lv_obj_align(p, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     }
     const int index = static_cast<int>(i);
@@ -99,7 +105,11 @@ void requestMoList(lv_obj_t* area, lv_obj_t* chooseBtn) {
   lv_obj_clean(area);
   lv_obj_t* sp = lv_spinner_create(area);
   lv_obj_set_size(sp, 64, 64);
-  lv_obj_center(sp);
+  lv_obj_align(sp, LV_ALIGN_LEFT_MID, 0, -12);
+  lv_obj_t* l = label(area, "Mengambil daftar MO...", &lv_font_montserrat_20, pal().muted);
+  lv_obj_align(l, LV_ALIGN_LEFT_MID, 88, -12);
+  lv_obj_t* hint = label(area, "Pastikan WiFi dan alamat server sudah diatur.", &lv_font_montserrat_16, pal().muted);
+  lv_obj_align(hint, LV_ALIGN_LEFT_MID, 88, 24);
   setEnabled(chooseBtn, false);
   s_moSelected = -1;
   netRequestMoList(nowEpoch());
@@ -111,16 +121,17 @@ void buildMoSelect(lv_obj_t* root) {
   const bool hasMo = !ctx().counter.activeMo().empty();
   backButton(root, hasMo ? Screen::Counting : Screen::Home);
   lv_obj_t* title = label(root, "Pilih MO yang sedang jalan", &lv_font_montserrat_28, pal().fg);
-  lv_obj_align(title, LV_ALIGN_TOP_LEFT, 176, 18);
+  lv_obj_align(title, LV_ALIGN_TOP_LEFT, 172, 20);
 
   lv_obj_t* area = lv_obj_create(root);
   lv_obj_remove_style_all(area);
-  lv_obj_set_size(area, 768, 280);
-  lv_obj_align(area, LV_ALIGN_TOP_MID, 0, 70);
+  lv_obj_set_size(area, 768, 248);
+  lv_obj_align(area, LV_ALIGN_TOP_MID, 0, 80);
 
-  lv_obj_t* chooseBtn = button(root, "PILIH MO INI", pal().accent, lv_color_hex(0xFFFFFF), &lv_font_montserrat_20, 420,
-                               64, nullptr);
-  lv_obj_align(chooseBtn, LV_ALIGN_BOTTOM_RIGHT, -16, -12);
+  lv_obj_t* chooseBtn = button(root, "PILIH MO INI", pal().accent, pal().onAccent, &lv_font_montserrat_20, 512, 72,
+                               nullptr);
+  lv_obj_align(chooseBtn, LV_ALIGN_BOTTOM_RIGHT, -16, -16);
+  setEnabled(chooseBtn, false);
   onClick(chooseBtn, []() {
     AppContext& c = ctx();
     if (s_moSelected < 0 || s_moSelected >= static_cast<int>(c.lastMoList.size())) return;
@@ -130,9 +141,9 @@ void buildMoSelect(lv_obj_t* root) {
     }
   });
 
-  lv_obj_t* refresh = button(root, LV_SYMBOL_REFRESH " Refresh", pal().card2, pal().fg, &lv_font_montserrat_20, 320,
-                             64, nullptr);
-  lv_obj_align(refresh, LV_ALIGN_BOTTOM_LEFT, 16, -12);
+  lv_obj_t* refresh = button(root, LV_SYMBOL_REFRESH " Refresh", pal().card2, pal().fg, &lv_font_montserrat_20, 240,
+                             72, nullptr);
+  lv_obj_align(refresh, LV_ALIGN_BOTTOM_LEFT, 16, -16);
   onClick(refresh, [area, chooseBtn]() { requestMoList(area, chooseBtn); });
 
   hooks().onNet = [area, chooseBtn](const NetResult& r) {
@@ -141,11 +152,11 @@ void buildMoSelect(lv_obj_t* root) {
       ctx().lastMoList = r.mos;  // a failure never touches the list or the active MO
       showMoList(area, chooseBtn);
     } else if (r.httpStatus == -2) {
-      showMoMessage(area, "Alamat server belum diatur\n(Pengaturan > Server API)", lv_color_hex(kRed));
+      showMoMessage(area, "Alamat server belum diatur\n(Pengaturan > Server API)", pal().danger);
     } else if (r.httpStatus <= 0) {
-      showMoMessage(area, "Gagal ambil daftar MO\n(tidak terhubung ke server)", lv_color_hex(kRed));
+      showMoMessage(area, "Daftar MO gagal dimuat.\nPeriksa koneksi lalu coba lagi.", pal().danger);
     } else {
-      showMoMessage(area, "Gagal ambil daftar MO (kode " + std::to_string(r.httpStatus) + ")", lv_color_hex(kRed));
+      showMoMessage(area, "Gagal ambil daftar MO (kode " + std::to_string(r.httpStatus) + ")", pal().danger);
     }
   };
   requestMoList(area, chooseBtn);
@@ -157,6 +168,7 @@ void buildCounting(lv_obj_t* root) {
   AppContext& c = ctx();
   const CounterState st = c.counter.state();
   const bool running = st == CounterState::Running;
+  const std::string& mo = c.counter.activeMo();
 
   if (st == CounterState::AwaitCode) {  // reached via Home while a code is pending
     uiGo(Screen::CodeInput);
@@ -165,31 +177,37 @@ void buildCounting(lv_obj_t* root) {
 
   if (running) {
     setStatusBarAlert(true);
-    lv_obj_set_style_bg_color(root, dark() ? lv_color_hex(0x2A1414) : lv_color_hex(0xFFF1F1), 0);
-    lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
   } else {
     backButton(root, Screen::Home);
   }
 
-  lv_obj_t* caption = label(root, running ? LV_SYMBOL_WARNING "  MESIN BERHENTI" : "Mesin berjalan normal",
-                            &lv_font_montserrat_28, running ? lv_color_hex(kRed) : pal().muted);
-  lv_obj_align(caption, LV_ALIGN_TOP_MID, 0, 24);
+  lv_obj_t* moLbl = label(root, mo.empty() ? std::string("MO: belum dipilih") : "MO: " + mo,
+                          &lv_font_montserrat_16, pal().muted);
+  lv_obj_set_width(moLbl, 460);
+  lv_label_set_long_mode(moLbl, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_align(moLbl, LV_TEXT_ALIGN_RIGHT, 0);
+  lv_obj_align(moLbl, LV_ALIGN_TOP_RIGHT, -16, 24);
+
+  lv_obj_t* caption = label(root, running ? "DOWNTIME DICATAT" : "SIAP MENCATAT", &lv_font_montserrat_20,
+                            running ? pal().danger : pal().muted);
+  lv_obj_align(caption, LV_ALIGN_TOP_MID, 0, 92);
 
   lv_obj_t* timer = label(root, clockText(c.counter.elapsedSec(millis())), &lv_font_montserrat_48,
-                          running ? lv_color_hex(kRed) : pal().muted);
+                          running ? pal().danger : pal().muted);
   lv_obj_set_style_transform_scale(timer, 400, 0);  // 48px font scaled to ~75px
-  lv_obj_align(timer, LV_ALIGN_TOP_MID, 0, 110);
+  lv_obj_align(timer, LV_ALIGN_TOP_MID, 0, 126);
   lv_obj_set_style_transform_pivot_x(timer, LV_PCT(50), 0);
   lv_obj_set_style_transform_pivot_y(timer, LV_PCT(50), 0);
 
+  const std::string since = c.counter.startEpoch() ? "Mulai " + hhmmss(c.counter.startEpoch()) + " WIB"
+                                                   : std::string("Mulai --:--:-- WIB");
+  lv_obj_t* s = label(root, since + (c.counter.estimated() ? "   (durasi perkiraan)" : ""),
+                      &lv_font_montserrat_20, running ? pal().danger : pal().muted);
+  lv_obj_align(s, LV_ALIGN_TOP_MID, 0, 228);
+
   if (running) {
-    const std::string since = c.counter.startEpoch() ? "Mulai " + hhmmss(c.counter.startEpoch())
-                                                     : std::string("Mulai -");
-    lv_obj_t* s = label(root, since + (c.counter.estimated() ? "   (perkiraan)" : ""), &lv_font_montserrat_20,
-                        lv_color_hex(kRed));
-    lv_obj_align(s, LV_ALIGN_TOP_MID, 0, 190);
-    lv_obj_t* stop = button(root, LV_SYMBOL_STOP "  STOP", lv_color_hex(kRed), lv_color_hex(0xFFFFFF),
-                            &lv_font_montserrat_48, 740, 150, []() {
+    lv_obj_t* stop = button(root, LV_SYMBOL_STOP "  Selesai catat downtime", pal().danger, pal().onAccent,
+                            &lv_font_montserrat_28, 752, 96, []() {
                               AppContext& cc = ctx();
                               if (cc.counter.stop(millis(), nowEpoch())) {
                                 persistCounter();
@@ -197,31 +215,33 @@ void buildCounting(lv_obj_t* root) {
                                 uiGo(Screen::CodeInput);
                               }
                             });
-    lv_obj_align(stop, LV_ALIGN_BOTTOM_MID, 0, -24);
+    lv_obj_align(stop, LV_ALIGN_BOTTOM_MID, 0, -72);
+    lv_obj_t* foot = label(root, "Ganti MO dikunci selama pencatatan berjalan. Bukan kontrol mesin.",
+                           &lv_font_montserrat_16, pal().muted);
+    lv_obj_align(foot, LV_ALIGN_BOTTOM_MID, 0, -28);
   } else if (st == CounterState::NoMo) {
-    lv_obj_t* pick = button(root, "Pilih MO dulu", pal().accent, lv_color_hex(0xFFFFFF), &lv_font_montserrat_48, 740,
-                            150, []() { uiGo(Screen::MoSelect); });
-    lv_obj_align(pick, LV_ALIGN_BOTTOM_MID, 0, -50);
+    lv_obj_t* pick = button(root, "Pilih MO dulu", pal().accent, pal().onAccent, &lv_font_montserrat_28, 752, 96,
+                            []() { uiGo(Screen::MoSelect); });
+    lv_obj_align(pick, LV_ALIGN_BOTTOM_MID, 0, -72);
+    lv_obj_t* foot = label(root, "Pencatatan downtime, bukan kontrol mesin", &lv_font_montserrat_16, pal().muted);
+    lv_obj_align(foot, LV_ALIGN_BOTTOM_MID, 0, -28);
   } else {
-    lv_obj_t* start = button(root, LV_SYMBOL_PLAY "  START", lv_color_hex(kGreen), lv_color_hex(0xFFFFFF),
-                             &lv_font_montserrat_48, 740, 150, []() {
+    lv_obj_t* start = button(root, LV_SYMBOL_PLAY "  Mulai catat downtime", pal().accent, pal().onAccent,
+                             &lv_font_montserrat_28, 752, 96, []() {
                                if (ctx().counter.start(millis(), nowEpoch())) {
                                  persistCounter();
                                  uiGo(Screen::Counting);
                                }
                              });
-    lv_obj_align(start, LV_ALIGN_BOTTOM_MID, 0, -56);
+    lv_obj_align(start, LV_ALIGN_BOTTOM_MID, 0, -72);
 
     const DaySummary d = c.store.summary(prodDateNow());
     lv_obj_t* sum = label(root, "Hari ini: " + std::to_string(d.count) + " kejadian  |  " + durationText(d.totalSec),
                           &lv_font_montserrat_16, pal().muted);
-    lv_obj_align(sum, LV_ALIGN_BOTTOM_LEFT, 30, -16);
-    lv_obj_t* change = label(root, "Ganti MO", &lv_font_montserrat_20, pal().accent);
-    lv_obj_set_style_text_decor(change, LV_TEXT_DECOR_UNDERLINE, 0);
-    lv_obj_add_flag(change, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_ext_click_area(change, 16);
-    lv_obj_align(change, LV_ALIGN_BOTTOM_RIGHT, -30, -14);
-    onClick(change, []() { uiGo(Screen::MoSelect); });
+    lv_obj_align(sum, LV_ALIGN_BOTTOM_LEFT, 20, -26);
+    lv_obj_t* change = button(root, "Ganti MO", pal().card2, pal().fg, &lv_font_montserrat_16, 160, 48,
+                              []() { uiGo(Screen::MoSelect); });
+    lv_obj_align(change, LV_ALIGN_BOTTOM_RIGHT, -16, -16);
   }
 
   if (running) {
@@ -249,50 +269,58 @@ void buildCodeInput(lv_obj_t* root) {
     return;
   }
   const uint32_t total = c.counter.elapsedSec(millis());
-  std::string header = "Durasi: " + durationText(total) + " (" + std::to_string(total) + " dtk)";
-  if (c.counter.startEpoch() && c.counter.stopEpoch()) {
-    header += "   " + hhmmss(c.counter.startEpoch()) + " - " + hhmmss(c.counter.stopEpoch());
+  lv_obj_t* dur = label(root, "Durasi: " + durationText(total), &lv_font_montserrat_20, pal().fg);
+  lv_obj_align(dur, LV_ALIGN_TOP_LEFT, 16, 14);
+  if (c.counter.estimated()) {
+    lv_obj_t* est = label(root, "(durasi perkiraan)", &lv_font_montserrat_16, pal().muted);
+    lv_obj_align(est, LV_ALIGN_TOP_LEFT, 16, 42);
   }
-  if (c.counter.estimated()) header += "   (perkiraan)";
-  lv_obj_t* h = label(root, header, &lv_font_montserrat_20, pal().fg);
-  lv_obj_align(h, LV_ALIGN_TOP_LEFT, 20, 14);
+  if (c.counter.startEpoch() && c.counter.stopEpoch()) {
+    const std::string range = hhmmss(c.counter.startEpoch()) + " - " + hhmmss(c.counter.stopEpoch());
+    lv_obj_t* r = label(root, "Rentang waktu: " + range, &lv_font_montserrat_20, pal().muted);
+    lv_obj_set_style_text_align(r, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_align(r, LV_ALIGN_TOP_RIGHT, -16, 14);
+  }
 
   lv_obj_t* left = lv_obj_create(root);
   lv_obj_remove_style_all(left);
-  lv_obj_set_size(left, 380, 370);
-  lv_obj_align(left, LV_ALIGN_BOTTOM_LEFT, 16, -12);
+  lv_obj_set_size(left, 376, 344);
+  lv_obj_align(left, LV_ALIGN_TOP_LEFT, 16, 76);
 
-  lv_obj_t* cap = label(left, "Kode problem", &lv_font_montserrat_16, pal().muted);
-  lv_obj_align(cap, LV_ALIGN_TOP_LEFT, 0, 0);
+  label(left, "Kode problem", &lv_font_montserrat_20, pal().muted);
   lv_obj_t* codeBox = card(left);
-  lv_obj_set_size(codeBox, 380, 90);
-  lv_obj_align(codeBox, LV_ALIGN_TOP_LEFT, 0, 26);
+  lv_obj_set_size(codeBox, 376, 64);
+  lv_obj_align(codeBox, LV_ALIGN_TOP_LEFT, 0, 28);
   lv_obj_set_style_border_color(codeBox, pal().accent, 0);
-  lv_obj_set_style_border_width(codeBox, 3, 0);
+  lv_obj_set_style_border_width(codeBox, 2, 0);
   lv_obj_t* codeLbl = label(codeBox, "", &lv_font_montserrat_48, pal().fg);
   lv_obj_center(codeLbl);
 
   lv_obj_t* preview = card(left);
-  lv_obj_set_size(preview, 380, 84);
-  lv_obj_align(preview, LV_ALIGN_TOP_LEFT, 0, 120);
-  lv_obj_t* pvTop = label(preview, "", &lv_font_montserrat_16, lv_color_hex(kAmber));
+  lv_obj_set_size(preview, 376, 80);
+  lv_obj_align(preview, LV_ALIGN_TOP_LEFT, 0, 100);
+  lv_obj_t* pvTop = label(preview, "", &lv_font_montserrat_16, pal().warning);
+  lv_obj_set_width(pvTop, 352);
+  lv_label_set_long_mode(pvTop, LV_LABEL_LONG_DOT);
   lv_obj_align(pvTop, LV_ALIGN_TOP_LEFT, 0, 0);
-  lv_obj_t* pvSub = label(preview, "", &lv_font_montserrat_28, pal().fg);
+  lv_obj_t* pvSub = label(preview, "", &lv_font_montserrat_20, pal().fg);
+  lv_obj_set_width(pvSub, 352);
+  lv_label_set_long_mode(pvSub, LV_LABEL_LONG_DOT);
   lv_obj_align(pvSub, LV_ALIGN_BOTTOM_LEFT, 0, 0);
 
   lv_obj_t* noteRow = card(left);
-  lv_obj_set_size(noteRow, 380, 40);
-  lv_obj_align(noteRow, LV_ALIGN_TOP_LEFT, 0, 212);
+  lv_obj_set_size(noteRow, 376, 48);
+  lv_obj_align(noteRow, LV_ALIGN_TOP_LEFT, 0, 188);
   lv_obj_remove_flag(noteRow, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_style_pad_all(noteRow, 4, 0);
+  lv_obj_set_style_pad_ver(noteRow, 2, 0);
   lv_obj_add_flag(noteRow, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_t* noteCap = label(noteRow, "Catatan (opsional)", &lv_font_montserrat_14, pal().muted);
-  lv_obj_align(noteCap, LV_ALIGN_TOP_LEFT, 0, -2);
+  lv_obj_t* noteCap = label(noteRow, "Catatan (opsional)", &lv_font_montserrat_16, pal().muted);
+  lv_obj_align(noteCap, LV_ALIGN_TOP_LEFT, 0, -4);
   lv_obj_t* noteVal = label(noteRow, "", &lv_font_montserrat_16, pal().fg);
   lv_label_set_long_mode(noteVal, LV_LABEL_LONG_DOT);
-  lv_obj_set_width(noteVal, 330);
+  lv_obj_set_width(noteVal, 320);
   lv_obj_align(noteVal, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-  lv_obj_t* noteIcon = label(noteRow, LV_SYMBOL_EDIT, &lv_font_montserrat_16, pal().accent);
+  lv_obj_t* noteIcon = label(noteRow, LV_SYMBOL_EDIT, &lv_font_montserrat_20, pal().accent);
   lv_obj_align(noteIcon, LV_ALIGN_RIGHT_MID, 0, 0);
   onClick(noteRow, []() {
     textEditor("Catatan downtime (opsional)", s_catatan, false, false, kMaxCatatanLen,
@@ -303,8 +331,8 @@ void buildCodeInput(lv_obj_t* root) {
                []() { uiGo(Screen::CodeInput); });
   });
 
-  lv_obj_t* cancel = button(left, "Batal", pal().card2, pal().fg, &lv_font_montserrat_20, 120, 110, []() {
-    confirm("Yakin dibuang?\nDowntime ini tidak akan dicatat.", "Buang", []() {
+  lv_obj_t* cancel = button(left, "Buang", pal().card2, pal().fg, &lv_font_montserrat_20, 112, 96, []() {
+    confirm("Buang catatan downtime ini?\nData ini tidak akan disimpan.", "Buang catatan", []() {
       if (ctx().counter.cancel()) {
         persistCounter();
         resetCodeEntry();
@@ -314,8 +342,8 @@ void buildCodeInput(lv_obj_t* root) {
   });
   lv_obj_align(cancel, LV_ALIGN_BOTTOM_LEFT, 0, 0);
 
-  lv_obj_t* send = button(left, LV_SYMBOL_OK "  KIRIM", lv_color_hex(kGreen), lv_color_hex(0xFFFFFF),
-                          &lv_font_montserrat_28, 248, 110, nullptr);
+  lv_obj_t* send = button(left, LV_SYMBOL_OK "  Simpan & kirim", pal().accent, pal().onAccent,
+                          &lv_font_montserrat_20, 256, 96, nullptr);
   lv_obj_align(send, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
 
   auto refresh = [codeLbl, pvTop, pvSub, noteVal, send]() {
@@ -328,7 +356,7 @@ void buildCodeInput(lv_obj_t* root) {
       lv_obj_set_style_text_color(pvSub, pal().fg, 0);
     } else {
       lv_label_set_text(pvTop, "");
-      lv_label_set_text(pvSub, s_code.empty() ? "Ketik kode 1-26" : "Kode tidak dikenal");
+      lv_label_set_text(pvSub, s_code.empty() ? "Masukkan kode 1-26" : "Kode tidak dikenal. Gunakan 1-26.");
       lv_obj_set_style_text_color(pvSub, pal().muted, 0);
     }
     lv_label_set_text(noteVal, s_catatan.empty() ? "Ketuk untuk menulis" : oneLineText(s_catatan).c_str());
@@ -353,7 +381,7 @@ void buildCodeInput(lv_obj_t* root) {
     e.prodDate = isClockValid(e.startEpoch) ? productionDate(e.startEpoch) : std::string();
     e.id = makeEventId(e.mesin, e.startEpoch, nextEventSeq());
     if (!cc.store.add(e)) {
-      toast("Gagal menyimpan data! Coba lagi.");
+      toast("Data belum tersimpan. Coba simpan lagi.");
       return;
     }
     cc.counter.complete();
@@ -364,7 +392,7 @@ void buildCodeInput(lv_obj_t* root) {
     uiGo(Screen::Result);
   });
 
-  lv_obj_t* kp = numericKeypad(root, 370, 370, [refresh](char k) {
+  lv_obj_t* kp = numericKeypad(root, 376, 344, [refresh](char k) {
     if (k == '\b') {
       if (!s_code.empty()) s_code.pop_back();
     } else if (k == 'c') {
@@ -374,7 +402,7 @@ void buildCodeInput(lv_obj_t* root) {
     }
     refresh();
   });
-  lv_obj_align(kp, LV_ALIGN_BOTTOM_RIGHT, -16, -12);
+  lv_obj_align(kp, LV_ALIGN_TOP_LEFT, 408, 76);
 }
 
 // ---------- Hasil ----------
@@ -385,7 +413,7 @@ void buildResult(lv_obj_t* root) {
   const DowntimeEvent* e = ctx().store.find(s_resultId);
   lv_obj_t* icon = label(root, LV_SYMBOL_UPLOAD, &lv_font_montserrat_48, pal().muted);
   lv_obj_align(icon, LV_ALIGN_TOP_MID, 0, 70);
-  lv_obj_t* title = label(root, "Mengirim...", &lv_font_montserrat_28, pal().fg);
+  lv_obj_t* title = label(root, "Menyimpan...", &lv_font_montserrat_28, pal().fg);
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 150);
   std::string summary;
   if (e) {
@@ -409,38 +437,52 @@ void buildResult(lv_obj_t* root) {
   const uint32_t shownAt = millis();
   struct State {
     bool decided = false;
+    bool sticky = false;
     uint32_t decidedAt = 0;
   };
   auto state = std::make_shared<State>();
 
-  auto decide = [=](const char* sym, uint32_t color, const std::string& text) {
+  auto decide = [=](const char* sym, lv_color_t color, const std::string& status, bool sticky) {
     lv_label_set_text(icon, sym);
-    lv_obj_set_style_text_color(icon, lv_color_hex(color), 0);
-    lv_label_set_text(title, text.c_str());
-    lv_label_set_text(note, "Kembali ke layar Counting...");
+    lv_obj_set_style_text_color(icon, color, 0);
+    lv_label_set_text(title, "Data tersimpan di perangkat");
+    if (sticky) {
+      lv_label_set_text(note, status.c_str());
+      lv_obj_t* back = button(root, "Kembali ke pencatatan", pal().accent, pal().onAccent, &lv_font_montserrat_20,
+                              480, 72, []() { uiGo(Screen::Counting); });
+      lv_obj_align(back, LV_ALIGN_BOTTOM_MID, 0, -24);
+    } else {
+      lv_label_set_text(note, (status + "  |  Kembali ke pencatatan...").c_str());
+    }
     state->decided = true;
+    state->sticky = sticky;
     state->decidedAt = millis();
   };
 
   // The event may already be settled (fast mock) before this screen was built.
-  if (e && e->status == EventStatus::Sent) decide(LV_SYMBOL_OK, kGreen, "Data terkirim");
+  if (e && e->status == EventStatus::Sent) {
+    decide(LV_SYMBOL_OK, pal().success, "Terkirim ke server", false);
+  } else if (e && e->status == EventStatus::Rejected) {
+    decide(LV_SYMBOL_CLOSE, pal().danger, "Server menolak data ini", true);
+  }
 
   hooks().onNet = [=](const NetResult& r) {
     if (state->decided || r.kind != NetResult::SendDone || r.id != s_resultId) return;
     const SendOutcome o = classifyHttp(r.httpStatus);
     if (o == SendOutcome::Sent) {
-      decide(LV_SYMBOL_OK, kGreen, "Data terkirim");
+      decide(LV_SYMBOL_OK, pal().success, "Terkirim ke server", false);
     } else if (o == SendOutcome::Rejected) {
-      decide(LV_SYMBOL_CLOSE, kRed, "Ditolak server (kode " + std::to_string(r.httpStatus) + ")");
+      decide(LV_SYMBOL_CLOSE, pal().danger,
+             "Server menolak data ini (kode " + std::to_string(r.httpStatus) + ")", true);
     } else {
-      decide(LV_SYMBOL_SAVE, kAmber, "Disimpan, akan dikirim ulang otomatis");
+      decide(LV_SYMBOL_SAVE, pal().warning, "Menunggu koneksi, dikirim ulang otomatis", false);
     }
   };
   hooks().tick = [=](uint32_t nowMs) {
     if (!state->decided && nowMs - shownAt > kResultWaitMs) {
-      decide(LV_SYMBOL_SAVE, kAmber, "Disimpan, akan dikirim ulang otomatis");
+      decide(LV_SYMBOL_SAVE, pal().warning, "Menunggu koneksi, dikirim ulang otomatis", false);
     }
-    if (state->decided && nowMs - state->decidedAt > kResultHoldMs) uiGo(Screen::Counting);
+    if (state->decided && !state->sticky && nowMs - state->decidedAt > kResultHoldMs) uiGo(Screen::Counting);
   };
 }
 

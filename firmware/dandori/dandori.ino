@@ -1,6 +1,7 @@
 // Dandori downtime recorder — Waveshare ESP32-S3-Touch-LCD-7C.
 // Spec: docs/superpowers/specs/2026-11-09-dandori-downtime-design.md
 #include <lvgl.h>
+#include <WiFi.h>
 
 #include "app_context.h"
 #include "src/core/wib_time.h"
@@ -48,6 +49,19 @@ static void pruneOnNewDay() {
   g_store.prune(day);
 }
 
+// SNTP has no error callback, so the retry and its logging live here: while the clock is unset,
+// restart it every 30 s and print enough to tell "no DNS" from "UDP 123 blocked".
+static void ntpRetry() {
+  static uint32_t lastTryMs = 0;
+  if (clockSynced()) return;
+  if (millis() - lastTryMs < 30000) return;
+  lastTryMs = millis();
+  if (netWifiConnected()) clockRestartDeferred();  // the network task owns the SNTP timer
+  Serial.printf("ntp: server=%s status=%d epoch=%lld wifi=%d ip=%s dns=%s\n", clockServer(), clockSyncState(),
+                static_cast<long long>(nowEpoch()), netWifiConnected() ? 1 : 0, netIp().c_str(),
+                WiFi.dnsIP(0).toString().c_str());
+}
+
 void setup() {
   Serial.begin(115200);
   const uint32_t serialWaitStart = millis();
@@ -58,9 +72,12 @@ void setup() {
   Serial.printf("dandori: %u events, %u pending\n", (unsigned)g_files.list().size(), (unsigned)g_store.pendingCount());
 
   if (!displayBegin()) Serial.println("display init failed");
+  Serial.printf("boot: display ready, heap=%u\n", static_cast<unsigned>(ESP.getFreeHeap()));
   displaySetScreenOffMinutes(g_settings.screenOffMin);
   netBegin(g_settings);
+  Serial.printf("boot: net ready, heap=%u\n", static_cast<unsigned>(ESP.getFreeHeap()));
   uiBegin(g_ctx);
+  Serial.printf("boot: ui ready, heap=%u\n", static_cast<unsigned>(ESP.getFreeHeap()));
 }
 
 void loop() {
@@ -70,5 +87,6 @@ void loop() {
   pumpOutbox();
   uiTick(millis());
   pruneOnNewDay();
+  ntpRetry();
   delay(5);
 }
